@@ -207,9 +207,11 @@ def run_shap_audio(image_data, model, class_names):
             preds.append(pred[0])
         return np.array(preds)
 
-    background = np.ones((1, n_segments))
+    # Use zeros as background (all segments masked) for better SHAP contrast
+    background = np.zeros((1, n_segments))
     explainer = shap.KernelExplainer(predict_fn, background)
 
+    # Test with all segments active
     test_mask = np.ones((1, n_segments))
     shap_values = explainer.shap_values(test_mask, nsamples=100)
 
@@ -228,15 +230,19 @@ def run_shap_audio(image_data, model, class_names):
                 scalar_val = float(val)
             heatmap[segments == seg_id] = scalar_val
 
+    # Normalize heatmap for better visualization
     if heatmap.max() != heatmap.min():
         heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    else:
+        # If all values are the same, create a uniform mid-value heatmap
+        heatmap = np.ones_like(heatmap) * 0.5
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].imshow(image_data)
     ax[0].set_title("Original Spectrogram")
     ax[0].axis('off')
     ax[1].imshow(image_data)
-    ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.5)
+    ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.7, vmin=0, vmax=1)
     ax[1].set_title(f"SHAP - Predicted: {class_names[class_label]}")
     ax[1].axis('off')
 
@@ -365,7 +371,8 @@ def run_shap_image(image_data, classifier, class_names):
             preds.append(pred[0])
         return np.array(preds)
 
-    background = np.ones((1, n_segments))
+    # Use zeros as background for better SHAP contrast
+    background = np.zeros((1, n_segments))
     explainer = shap.KernelExplainer(predict_fn, background)
 
     test_mask = np.ones((1, n_segments))
@@ -386,15 +393,18 @@ def run_shap_image(image_data, classifier, class_names):
                 scalar_val = float(val)
             heatmap[segments == seg_id] = scalar_val
 
+    # Normalize heatmap for better visualization
     if heatmap.max() != heatmap.min():
         heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    else:
+        heatmap = np.ones_like(heatmap) * 0.5
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].imshow(image_data)
     ax[0].set_title("Original X-Ray")
     ax[0].axis('off')
     ax[1].imshow(image_data)
-    ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.5)
+    ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.7, vmin=0, vmax=1)
     ax[1].set_title(f"SHAP - Predicted: {class_names[class_label]}")
     ax[1].axis('off')
 

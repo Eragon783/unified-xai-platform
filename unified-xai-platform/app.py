@@ -13,9 +13,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Import pages
-from pages.home import render_home_page
-from pages.comparison import render_comparison_page
+# Import views
+from views.home import render_home_page
+from views.comparison import render_comparison_page
 
 
 def main():

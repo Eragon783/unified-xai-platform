@@ -194,7 +194,8 @@ def run_shap_comparison(image_data, model, input_type, is_classifier=False):
             preds.append(pred[0])
         return np.array(preds)
 
-    background = np.ones((1, n_segments))
+    # Use zeros as background for better SHAP contrast
+    background = np.zeros((1, n_segments))
     explainer = shap.KernelExplainer(predict_fn, background)
 
     test_mask = np.ones((1, n_segments))
@@ -215,14 +216,17 @@ def run_shap_comparison(image_data, model, input_type, is_classifier=False):
                 scalar_val = float(val)
             heatmap[segments == seg_id] = scalar_val
 
+    # Normalize heatmap for better visualization
     if heatmap.max() != heatmap.min():
         heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    else:
+        heatmap = np.ones_like(heatmap) * 0.5
 
     computation_time = time.time() - start_time
 
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.imshow(image_data)
-    ax.imshow(heatmap, cmap='RdBu_r', alpha=0.5)
+    ax.imshow(heatmap, cmap='RdBu_r', alpha=0.7, vmin=0, vmax=1)
     ax.set_title("SHAP Explanation")
     ax.axis('off')
     plt.tight_layout()

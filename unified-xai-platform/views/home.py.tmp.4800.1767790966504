@@ -1,0 +1,897 @@
+"""
+Home Page
+Main interface for uploading files, selecting models, and applying XAI methods.
+"""
+
+import streamlit as st
+import numpy as np
+import pandas as pd
+from PIL import Image
+import os
+import sys
+import matplotlib.pyplot as plt
+from skimage.segmentation import mark_boundaries, slic
+import cv2
+import tensorflow as tf
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.audio_processing import create_spectrogram_from_upload, spectrogram_to_array
+from utils.image_processing import load_image_from_upload, image_to_array
+from utils.tabular_processing import load_csv_from_upload, validate_fraud_csv, get_sample_for_analysis
+from models.audio.audio_classifier import AudioClassifier
+from models.image.image_classifier import ImageClassifier
+from models.tabular.fraud_classifier import FraudClassifier
+
+
+# XAI method descriptions
+XAI_METHODS = {
+    'lime': {
+        'name': 'LIME',
+        'description': 'Local Interpretable Model-agnostic Explanations'
+    },
+    'gradcam': {
+        'name': 'Grad-CAM',
+        'description': 'Gradient-weighted Class Activation Mapping'
+    },
+    'shap': {
+        'name': 'SHAP',
+        'description': 'SHapley Additive exPlanations'
+    },
+    'lime_tabular': {
+        'name': 'LIME Tabular',
+        'description': 'LIME for tabular/structured data'
+    },
+    'shap_tabular': {
+        'name': 'SHAP TreeExplainer',
+        'description': 'SHAP optimized for tree-based models'
+    },
+    'feature_importance': {
+        'name': 'Feature Importance',
+        'description': 'Global feature importance from the model'
+    }
+}
+
+# XAI methods compatible with each model
+MODEL_XAI_COMPATIBILITY = {
+    'mobilenet': ['lime', 'gradcam', 'shap'],
+    'densenet121': ['lime', 'gradcam', 'shap'],
+    'randomforest_fraud': ['lime_tabular', 'shap_tabular', 'feature_importance']
+}
+
+# Class names
+AUDIO_CLASS_NAMES = ['real', 'fake']
+IMAGE_CLASS_NAMES = ['benign', 'malignant']
+FRAUD_CLASS_NAMES = ['legitimate', 'fraud']
+
+
+def detect_input_type(file) -> str:
+    """Detect the type of uploaded file."""
+    if file is None:
+        return None
+
+    file_ext = file.name.lower().split('.')[-1]
+
+    if file_ext in ['wav', 'mp3', 'flac', 'ogg']:
+        return 'audio'
+    elif file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'gif']:
+        return 'image'
+    elif file_ext in ['csv']:
+        return 'tabular'
+    else:
+        return None
+
+
+def get_compatible_xai_methods(model_name: str) -> dict:
+    """Get XAI methods compatible with the selected model."""
+    compatible = {}
+    compatible_keys = MODEL_XAI_COMPATIBILITY.get(model_name, [])
+    for key in compatible_keys:
+        if key in XAI_METHODS:
+            compatible[key] = XAI_METHODS[key]
+    return compatible
+
+
+# =============================================================================
+# AUDIO XAI FUNCTIONS
+# =============================================================================
+
+def run_lime_audio(image_data, model, class_names):
+    """Run LIME explanation on audio spectrogram."""
+    from lime import lime_image
+
+    img_array = spectrogram_to_array(image_data, normalize=True)
+
+    explainer = lime_image.LimeImageExplainer()
+    explanation = explainer.explain_instance(
+        img_array.astype('float64'),
+        model.predict,
+        hide_color=0,
+        num_samples=1000
+    )
+
+    prediction = model.predict(np.expand_dims(img_array, axis=0))
+    class_label = np.argmax(prediction[0])
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    axs[0].imshow(image_data)
+    axs[0].set_title("Original Spectrogram")
+    axs[0].axis('off')
+
+    temp, mask = explanation.get_image_and_mask(
+        np.argmax(prediction[0]),
+        positive_only=False,
+        num_features=8,
+        hide_rest=True
+    )
+    axs[1].imshow(mark_boundaries(temp, mask))
+    axs[1].set_title(f"LIME - Predicted: {class_names[class_label]}")
+    axs[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+def run_gradcam_audio(image_data, model, class_idx, class_names):
+    """Run Grad-CAM explanation for audio using VGG16."""
+    from keras.preprocessing.image import img_to_array
+
+    img_array = img_to_array(image_data)
+    x = np.expand_dims(img_array, axis=0)
+    x = tf.keras.applications.vgg16.preprocess_input(x)
+
+    vgg_model = tf.keras.applications.VGG16(weights='imagenet', include_top=True)
+    last_conv_layer = vgg_model.get_layer('block5_conv3')
+    grad_model = tf.keras.models.Model([vgg_model.inputs], [last_conv_layer.output, vgg_model.output])
+
+    with tf.GradientTape() as tape:
+        last_conv_layer_output, preds = grad_model(x)
+        class_output = preds[:, class_idx]
+
+    grads = tape.gradient(class_output, last_conv_layer_output)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    last_conv_layer_output = last_conv_layer_output[0]
+    heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+    heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
+
+    heatmap = cv2.resize(np.float32(heatmap), (x.shape[2], x.shape[1]))
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    heatmap = heatmap.astype(np.float32)
+
+    superimposed_img = cv2.addWeighted(x[0], 0.6, heatmap, 0.4, 0, dtype=cv2.CV_32F)
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(image_data)
+    ax[0].set_title("Original Spectrogram")
+    ax[0].axis('off')
+    ax[1].imshow(superimposed_img / 255.0)
+    ax[1].set_title(f"Grad-CAM - Predicted: {class_names[class_idx]}")
+    ax[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+def run_shap_audio(image_data, model, class_names):
+    """Run SHAP explanation on audio spectrogram."""
+    import shap
+
+    img_array = spectrogram_to_array(image_data, normalize=True)
+    prediction = model.predict(np.expand_dims(img_array, axis=0))
+    class_label = np.argmax(prediction[0])
+
+    img_uint8 = (img_array * 255).astype(np.uint8)
+    segments = slic(img_uint8, n_segments=50, compactness=10, sigma=1)
+
+    unique_segments = np.unique(segments)
+    n_segments = len(unique_segments)
+
+    def mask_image(mask, img, segs, seg_ids, background=0.0):
+        masked = img.copy()
+        for idx, keep in enumerate(mask):
+            if not keep:
+                seg_id = seg_ids[idx]
+                masked[segs == seg_id] = background
+        return masked
+
+    def predict_fn(masks):
+        preds = []
+        for mask in masks:
+            masked_img = mask_image(mask, img_array, segments, unique_segments)
+            masked_img = np.expand_dims(masked_img, axis=0)
+            pred = model.predict(masked_img, verbose=0)
+            preds.append(pred[0])
+        return np.array(preds)
+
+    # Use zeros as background (all segments masked) for better SHAP contrast
+    background = np.zeros((1, n_segments))
+    explainer = shap.KernelExplainer(predict_fn, background)
+
+    # Test with all segments active
+    test_mask = np.ones((1, n_segments))
+    shap_values = explainer.shap_values(test_mask, nsamples=100)
+
+    if isinstance(shap_values, list):
+        values = shap_values[class_label][0]
+    else:
+        values = shap_values[0]
+
+    heatmap = np.zeros(segments.shape, dtype=np.float64)
+    for idx, val in enumerate(values):
+        if idx < len(unique_segments):
+            seg_id = unique_segments[idx]
+            if hasattr(val, '__len__') and len(val) > 1:
+                scalar_val = float(val[class_label])
+            else:
+                scalar_val = float(val)
+            heatmap[segments == seg_id] = scalar_val
+
+    # Normalize heatmap for better visualization
+    if heatmap.max() != heatmap.min():
+        heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    else:
+        # If all values are the same, create a uniform mid-value heatmap
+        heatmap = np.ones_like(heatmap) * 0.5
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(image_data)
+    ax[0].set_title("Original Spectrogram")
+    ax[0].axis('off')
+
+    # Show heatmap with better visibility
+    ax[1].imshow(image_data)
+    heatmap_plot = ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.7, vmin=0, vmax=1)
+    ax[1].set_title(f"SHAP - Predicted: {class_names[class_label]}")
+    ax[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+# =============================================================================
+# IMAGE XAI FUNCTIONS
+# =============================================================================
+
+def run_lime_image(image_data, classifier, class_names):
+    """Run LIME explanation on X-ray image."""
+    from lime import lime_image
+
+    img_array = image_to_array(image_data, normalize=True)
+
+    def predict_fn(images):
+        return classifier.predict_proba(images)
+
+    explainer = lime_image.LimeImageExplainer()
+    explanation = explainer.explain_instance(
+        img_array.astype('float64'),
+        predict_fn,
+        hide_color=0,
+        num_samples=1000
+    )
+
+    prediction = classifier.predict_proba(np.expand_dims(img_array, axis=0))
+    class_label = np.argmax(prediction[0])
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    axs[0].imshow(image_data)
+    axs[0].set_title("Original X-Ray")
+    axs[0].axis('off')
+
+    temp, mask = explanation.get_image_and_mask(
+        class_label,
+        positive_only=False,
+        num_features=10,
+        hide_rest=True
+    )
+    axs[1].imshow(mark_boundaries(temp, mask))
+    axs[1].set_title(f"LIME - Predicted: {class_names[class_label]}")
+    axs[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+def run_gradcam_image(image_data, classifier, class_idx, class_names):
+    """Run Grad-CAM explanation on X-ray image using the model's conv layers."""
+    img_array = image_to_array(image_data, normalize=True)
+    x = np.expand_dims(img_array, axis=0)
+
+    model = classifier.get_model()
+    last_conv_layer_name = classifier.get_last_conv_layer_name()
+
+    x_processed = tf.keras.applications.densenet.preprocess_input(x * 255.0)
+
+    grad_model = tf.keras.models.Model(
+        inputs=model.input,
+        outputs=[model.get_layer(last_conv_layer_name).output, model.output]
+    )
+
+    with tf.GradientTape() as tape:
+        last_conv_layer_output, preds = grad_model(x_processed)
+        class_output = preds[:, class_idx]
+
+    grads = tape.gradient(class_output, last_conv_layer_output)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    last_conv_layer_output = last_conv_layer_output[0]
+    heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+    heatmap = tf.maximum(heatmap, 0) / (tf.math.reduce_max(heatmap) + 1e-8)
+
+    heatmap_resized = cv2.resize(np.float32(heatmap), (224, 224))
+    heatmap_colored = np.uint8(255 * heatmap_resized)
+    heatmap_colored = cv2.applyColorMap(heatmap_colored, cv2.COLORMAP_JET)
+    heatmap_colored = cv2.cvtColor(heatmap_colored, cv2.COLOR_BGR2RGB)
+
+    original_img = np.array(image_data)
+    superimposed = cv2.addWeighted(original_img, 0.6, heatmap_colored, 0.4, 0)
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(image_data)
+    ax[0].set_title("Original X-Ray")
+    ax[0].axis('off')
+    ax[1].imshow(superimposed)
+    ax[1].set_title(f"Grad-CAM - Predicted: {class_names[class_idx]}")
+    ax[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+def run_shap_image(image_data, classifier, class_names):
+    """Run SHAP explanation on X-ray image."""
+    import shap
+
+    img_array = image_to_array(image_data, normalize=True)
+    prediction = classifier.predict_proba(np.expand_dims(img_array, axis=0))
+    class_label = np.argmax(prediction[0])
+
+    img_uint8 = (img_array * 255).astype(np.uint8)
+    segments = slic(img_uint8, n_segments=50, compactness=10, sigma=1)
+
+    unique_segments = np.unique(segments)
+    n_segments = len(unique_segments)
+
+    def mask_image(mask, img, segs, seg_ids, background=0.0):
+        masked = img.copy()
+        for idx, keep in enumerate(mask):
+            if not keep:
+                seg_id = seg_ids[idx]
+                masked[segs == seg_id] = background
+        return masked
+
+    def predict_fn(masks):
+        preds = []
+        for mask in masks:
+            masked_img = mask_image(mask, img_array, segments, unique_segments)
+            masked_img = np.expand_dims(masked_img, axis=0)
+            pred = classifier.predict_proba(masked_img)
+            preds.append(pred[0])
+        return np.array(preds)
+
+    # Use zeros as background for better SHAP contrast
+    background = np.zeros((1, n_segments))
+    explainer = shap.KernelExplainer(predict_fn, background)
+
+    test_mask = np.ones((1, n_segments))
+    shap_values = explainer.shap_values(test_mask, nsamples=100)
+
+    if isinstance(shap_values, list):
+        values = shap_values[class_label][0]
+    else:
+        values = shap_values[0]
+
+    heatmap = np.zeros(segments.shape, dtype=np.float64)
+    for idx, val in enumerate(values):
+        if idx < len(unique_segments):
+            seg_id = unique_segments[idx]
+            if hasattr(val, '__len__') and len(val) > 1:
+                scalar_val = float(val[class_label])
+            else:
+                scalar_val = float(val)
+            heatmap[segments == seg_id] = scalar_val
+
+    # Normalize heatmap for better visualization
+    if heatmap.max() != heatmap.min():
+        heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min())
+    else:
+        heatmap = np.ones_like(heatmap) * 0.5
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(image_data)
+    ax[0].set_title("Original X-Ray")
+    ax[0].axis('off')
+    ax[1].imshow(image_data)
+    ax[1].imshow(heatmap, cmap='RdBu_r', alpha=0.7, vmin=0, vmax=1)
+    ax[1].set_title(f"SHAP - Predicted: {class_names[class_label]}")
+    ax[1].axis('off')
+
+    plt.tight_layout()
+    return fig
+
+
+# =============================================================================
+# TABULAR XAI FUNCTIONS
+# =============================================================================
+
+def run_lime_tabular(X, classifier, feature_names, class_names):
+    """Run LIME explanation on tabular data."""
+    from lime.lime_tabular import LimeTabularExplainer
+
+    prediction = classifier.predict_proba(X)
+    class_label = np.argmax(prediction[0])
+
+    # Generate synthetic training data for LIME (it needs a reference dataset)
+    # Create variations around the sample point
+    np.random.seed(42)
+    n_samples = 500
+    n_features = X.shape[1]
+
+    # Generate training data with similar distribution
+    training_data = np.random.randn(n_samples, n_features)
+    # Add the actual sample to ensure it's represented
+    training_data = np.vstack([X, training_data])
+
+    # Create explainer with synthetic training data
+    explainer = LimeTabularExplainer(
+        training_data,
+        feature_names=feature_names,
+        class_names=class_names,
+        mode='classification',
+        discretize_continuous=True
+    )
+
+    # Explain the instance
+    exp = explainer.explain_instance(
+        X[0],
+        classifier.predict_proba,
+        num_features=min(10, len(feature_names)),
+        num_samples=1000
+    )
+
+    # Create visualization
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Get feature contributions
+    feature_weights = exp.as_list()
+    features = [fw[0] for fw in feature_weights]
+    weights = [fw[1] for fw in feature_weights]
+
+    colors = ['green' if w > 0 else 'red' for w in weights]
+    y_pos = np.arange(len(features))
+
+    ax.barh(y_pos, weights, color=colors)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(features)
+    ax.set_xlabel('Feature Contribution')
+    ax.set_title(f'LIME Tabular - Predicted: {class_names[class_label]}')
+    ax.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
+
+    plt.tight_layout()
+    return fig
+
+
+def run_shap_tabular(X, classifier, feature_names, class_names):
+    """Run SHAP TreeExplainer on tabular data."""
+    import shap
+
+    model = classifier.get_model()
+    prediction = classifier.predict_proba(X)
+    class_label = np.argmax(prediction[0])
+
+    # Use TreeExplainer for tree-based models
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X)
+
+    # Handle multi-class output
+    if isinstance(shap_values, list):
+        values = shap_values[class_label][0]
+    else:
+        if shap_values.ndim == 3:
+            values = shap_values[0, :, class_label]
+        else:
+            values = shap_values[0]
+
+    # Create waterfall-style bar plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Sort by absolute value
+    indices = np.argsort(np.abs(values))[::-1][:10]
+    sorted_features = [feature_names[i] for i in indices]
+    sorted_values = values[indices]
+
+    colors = ['#ff0051' if v < 0 else '#008bfb' for v in sorted_values]
+    y_pos = np.arange(len(sorted_features))
+
+    ax.barh(y_pos, sorted_values, color=colors)
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(sorted_features)
+    ax.set_xlabel('SHAP Value (impact on prediction)')
+    ax.set_title(f'SHAP TreeExplainer - Predicted: {class_names[class_label]}')
+    ax.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
+
+    # Add legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#008bfb', label='Pushes towards Fraud'),
+        Patch(facecolor='#ff0051', label='Pushes towards Legitimate')
+    ]
+    ax.legend(handles=legend_elements, loc='lower right')
+
+    plt.tight_layout()
+    return fig
+
+
+def run_feature_importance(classifier, feature_names, class_names):
+    """Display global feature importance from the model."""
+    importance_dict = classifier.get_feature_importance()
+
+    if not importance_dict:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, 'Feature importance not available for this model',
+                ha='center', va='center', fontsize=12)
+        ax.axis('off')
+        return fig
+
+    # Sort by importance
+    sorted_items = sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)[:15]
+    features = [item[0] for item in sorted_items]
+    importances = [item[1] for item in sorted_items]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    y_pos = np.arange(len(features))
+    colors = plt.cm.Blues(np.linspace(0.4, 0.9, len(features)))
+
+    ax.barh(y_pos, importances, color=colors[::-1])
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(features)
+    ax.set_xlabel('Importance Score')
+    ax.set_title('Global Feature Importance (Random Forest)')
+    ax.invert_yaxis()
+
+    plt.tight_layout()
+    return fig
+
+
+# =============================================================================
+# MAIN PAGE RENDER
+# =============================================================================
+
+def render_home_page():
+    """Render the home page."""
+
+    st.title("Unified XAI Platform")
+    st.markdown("Upload audio, image, or CSV files for classification with explainable AI")
+
+    st.markdown("---")
+
+    # Create temp directory for files
+    temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # File upload section
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("Upload File")
+
+        uploaded_file = st.file_uploader(
+            "Choose an audio, image, or CSV file",
+            type=['wav', 'jpg', 'jpeg', 'png', 'csv'],
+            help="Supported formats: WAV (audio), JPG/PNG (images), CSV (tabular data)"
+        )
+
+        if uploaded_file is not None:
+            input_type = detect_input_type(uploaded_file)
+
+            if input_type == 'audio':
+                st.success("Audio file detected - Deepfake Detection")
+                st.audio(uploaded_file)
+                st.session_state['uploaded_file'] = uploaded_file
+                st.session_state['input_type'] = input_type
+
+            elif input_type == 'image':
+                st.success("Image file detected - Lung Cancer Detection")
+                image = Image.open(uploaded_file)
+                st.image(image, caption="Uploaded X-Ray", width="stretch")
+                st.session_state['uploaded_file'] = uploaded_file
+                st.session_state['input_type'] = input_type
+
+            elif input_type == 'tabular':
+                st.success("CSV file detected - Fraud Detection")
+                df, _ = load_csv_from_upload(uploaded_file, temp_dir)
+                st.session_state['uploaded_file'] = uploaded_file
+                st.session_state['input_type'] = input_type
+                st.session_state['tabular_data'] = df
+
+                # Show data preview
+                st.markdown("**Data Preview:**")
+                st.dataframe(df.head(5), width="stretch")
+                st.caption(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
+
+                # Validate the CSV
+                validation = validate_fraud_csv(df)
+                if validation['warnings']:
+                    for warning in validation['warnings']:
+                        st.warning(warning)
+
+    with col2:
+        st.subheader("Configuration")
+
+        if 'input_type' in st.session_state and st.session_state['input_type']:
+            input_type = st.session_state['input_type']
+
+            # Model selection
+            st.markdown("**Select Model:**")
+
+            if input_type == 'audio':
+                model_options = {'mobilenet': 'MobileNet (Deepfake Detection)'}
+            elif input_type == 'image':
+                model_options = {'densenet121': 'DenseNet121 (Lung Cancer Detection)'}
+            elif input_type == 'tabular':
+                model_options = {'randomforest_fraud': 'Random Forest (Fraud Detection)'}
+            else:
+                model_options = {}
+
+            selected_model = st.selectbox(
+                "Classification Model",
+                options=list(model_options.keys()),
+                format_func=lambda x: model_options[x]
+            )
+            st.session_state['selected_model'] = selected_model
+
+            # For tabular data, add row selection
+            if input_type == 'tabular' and 'tabular_data' in st.session_state:
+                df = st.session_state['tabular_data']
+                st.markdown("**Select Row to Analyze:**")
+                row_index = st.number_input(
+                    "Row index",
+                    min_value=0,
+                    max_value=len(df) - 1,
+                    value=0,
+                    help="Select which transaction to analyze"
+                )
+                st.session_state['selected_row'] = row_index
+
+            # XAI method selection
+            st.markdown("**Select XAI Method(s):**")
+            compatible_methods = get_compatible_xai_methods(selected_model)
+
+            selected_xai = st.multiselect(
+                "Explainability Methods",
+                options=list(compatible_methods.keys()),
+                format_func=lambda x: f"{compatible_methods[x]['name']}",
+                default=list(compatible_methods.keys())
+            )
+            st.session_state['selected_xai'] = selected_xai
+
+        else:
+            st.info("Please upload a file first")
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # AUDIO ANALYSIS
+    # ==========================================================================
+    if 'uploaded_file' in st.session_state and st.session_state.get('input_type') == 'audio':
+
+        if st.button("Run Analysis", type="primary", width="stretch"):
+            st.subheader("Results")
+
+            xai_methods = st.session_state.get('selected_xai', [])
+            uploaded_file = st.session_state['uploaded_file']
+
+            with st.spinner('Processing audio file...'):
+                image_data, spec_path = create_spectrogram_from_upload(uploaded_file, temp_dir)
+
+                st.markdown("### Spectrogram")
+                st.image(image_data, caption="Generated Mel-Spectrogram")
+
+                try:
+                    classifier = AudioClassifier()
+                    model = classifier.get_model()
+
+                    img_array = spectrogram_to_array(image_data, normalize=True)
+                    class_label, prediction = classifier.predict(img_array)
+
+                    st.markdown("### Classification Result")
+                    result_text = f"The uploaded audio is **{AUDIO_CLASS_NAMES[class_label].upper()}**"
+                    if class_label == 0:
+                        st.success(result_text)
+                    else:
+                        st.error(result_text)
+
+                    confidence = prediction[0][class_label] * 100
+                    st.write(f"Confidence: {confidence:.2f}%")
+
+                    st.session_state['analysis_results'] = {
+                        'input_type': 'audio',
+                        'model': 'mobilenet',
+                        'xai_methods': xai_methods,
+                        'class_label': int(class_label),
+                        'prediction': prediction.tolist(),
+                        'image_data': image_data
+                    }
+
+                    if xai_methods:
+                        st.markdown("### XAI Explanations")
+
+                        for method in xai_methods:
+                            st.markdown(f"#### {XAI_METHODS[method]['name']}")
+                            with st.spinner(f'Computing {XAI_METHODS[method]["name"]} explanation...'):
+                                try:
+                                    if method == 'lime':
+                                        fig = run_lime_audio(image_data, model, AUDIO_CLASS_NAMES)
+                                    elif method == 'gradcam':
+                                        fig = run_gradcam_audio(image_data, model, class_label, AUDIO_CLASS_NAMES)
+                                    elif method == 'shap':
+                                        fig = run_shap_audio(image_data, model, AUDIO_CLASS_NAMES)
+                                    st.pyplot(fig)
+                                    plt.close(fig)
+                                except Exception as e:
+                                    st.error(f"Error computing {method}: {str(e)}")
+
+                    st.success("Analysis complete! You can now go to the **Comparison** page.")
+
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
+
+    # ==========================================================================
+    # IMAGE ANALYSIS
+    # ==========================================================================
+    elif 'uploaded_file' in st.session_state and st.session_state.get('input_type') == 'image':
+
+        if st.button("Run Analysis", type="primary", width="stretch"):
+            st.subheader("Results")
+
+            xai_methods = st.session_state.get('selected_xai', [])
+            uploaded_file = st.session_state['uploaded_file']
+
+            with st.spinner('Processing X-ray image...'):
+                image_data, image_path = load_image_from_upload(uploaded_file, temp_dir)
+
+                st.markdown("### Preprocessed Image")
+                st.image(image_data, caption="Resized to 224x224")
+
+                try:
+                    with st.spinner('Loading DenseNet121 model (first time may take a moment)...'):
+                        classifier = ImageClassifier()
+
+                    img_array = image_to_array(image_data, normalize=True)
+                    class_label, prediction = classifier.predict(img_array)
+
+                    st.markdown("### Classification Result")
+                    result_text = f"The X-ray shows **{IMAGE_CLASS_NAMES[class_label].upper()}** condition"
+                    if class_label == 0:
+                        st.success(result_text)
+                    else:
+                        st.error(result_text)
+
+                    confidence = prediction[0][class_label] * 100
+                    st.write(f"Confidence: {confidence:.2f}%")
+
+                    st.warning("Note: This model uses ImageNet pretrained weights and is for demonstration purposes.")
+
+                    st.session_state['analysis_results'] = {
+                        'input_type': 'image',
+                        'model': 'densenet121',
+                        'xai_methods': xai_methods,
+                        'class_label': int(class_label),
+                        'prediction': prediction.tolist(),
+                        'image_data': image_data
+                    }
+
+                    if xai_methods:
+                        st.markdown("### XAI Explanations")
+
+                        for method in xai_methods:
+                            st.markdown(f"#### {XAI_METHODS[method]['name']}")
+                            with st.spinner(f'Computing {XAI_METHODS[method]["name"]} explanation...'):
+                                try:
+                                    if method == 'lime':
+                                        fig = run_lime_image(image_data, classifier, IMAGE_CLASS_NAMES)
+                                    elif method == 'gradcam':
+                                        fig = run_gradcam_image(image_data, classifier, class_label, IMAGE_CLASS_NAMES)
+                                    elif method == 'shap':
+                                        fig = run_shap_image(image_data, classifier, IMAGE_CLASS_NAMES)
+                                    st.pyplot(fig)
+                                    plt.close(fig)
+                                except Exception as e:
+                                    st.error(f"Error computing {method}: {str(e)}")
+
+                    st.success("Analysis complete! You can now go to the **Comparison** page.")
+
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
+
+    # ==========================================================================
+    # TABULAR (FRAUD) ANALYSIS
+    # ==========================================================================
+    elif 'uploaded_file' in st.session_state and st.session_state.get('input_type') == 'tabular':
+
+        if st.button("Run Analysis", type="primary", width="stretch"):
+            st.subheader("Results")
+
+            xai_methods = st.session_state.get('selected_xai', [])
+            df = st.session_state.get('tabular_data')
+            row_index = st.session_state.get('selected_row', 0)
+
+            if df is None:
+                st.error("No data available. Please re-upload the CSV file.")
+                return
+
+            with st.spinner('Analyzing transaction...'):
+                try:
+                    classifier = FraudClassifier()
+                    feature_names = classifier.get_feature_names()
+
+                    # Get the selected row
+                    sample_df = get_sample_for_analysis(df, row_index)
+
+                    # Show selected transaction
+                    st.markdown("### Selected Transaction")
+                    available_features = [f for f in feature_names if f in sample_df.columns]
+                    display_df = sample_df[available_features].round(4)
+                    st.dataframe(display_df, width="stretch")
+
+                    # Preprocess and predict
+                    X = classifier.preprocess(sample_df)
+                    class_label, prediction = classifier.predict(X)
+
+                    st.markdown("### Classification Result")
+                    result_text = f"This transaction is classified as **{FRAUD_CLASS_NAMES[class_label].upper()}**"
+                    if class_label == 0:
+                        st.success(result_text)
+                    else:
+                        st.error(result_text)
+
+                    confidence = prediction[0][class_label] * 100
+                    st.write(f"Confidence: {confidence:.2f}%")
+
+                    # Show probability distribution
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Legitimate Probability", f"{prediction[0][0]*100:.2f}%")
+                    with col2:
+                        st.metric("Fraud Probability", f"{prediction[0][1]*100:.2f}%")
+
+                    # Save results for comparison page
+                    st.session_state['analysis_results'] = {
+                        'input_type': 'tabular',
+                        'model': 'randomforest_fraud',
+                        'xai_methods': xai_methods,
+                        'class_label': int(class_label),
+                        'prediction': prediction.tolist(),
+                        'tabular_data': X,
+                        'feature_names': available_features,
+                        'sample_df': sample_df
+                    }
+
+                    # Run XAI methods
+                    if xai_methods:
+                        st.markdown("### XAI Explanations")
+
+                        for method in xai_methods:
+                            st.markdown(f"#### {XAI_METHODS[method]['name']}")
+                            with st.spinner(f'Computing {XAI_METHODS[method]["name"]} explanation...'):
+                                try:
+                                    if method == 'lime_tabular':
+                                        fig = run_lime_tabular(X, classifier, available_features, FRAUD_CLASS_NAMES)
+                                    elif method == 'shap_tabular':
+                                        fig = run_shap_tabular(X, classifier, available_features, FRAUD_CLASS_NAMES)
+                                    elif method == 'feature_importance':
+                                        fig = run_feature_importance(classifier, available_features, FRAUD_CLASS_NAMES)
+                                    st.pyplot(fig)
+                                    plt.close(fig)
+                                except Exception as e:
+                                    st.error(f"Error computing {method}: {str(e)}")
+
+                    st.success("Analysis complete! You can now go to the **Comparison** page.")
+
+                except Exception as e:
+                    st.error(f"Error during analysis: {str(e)}")
