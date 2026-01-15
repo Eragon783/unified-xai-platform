@@ -1,176 +1,176 @@
 # Unified Explainable AI Platform
 
-**Projet de 5ème année - ESILV - Explainability AI**
+**5th year project - ESILV - Explainability AI**
 
-**Groupe**: Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN
+**Group**: Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN
 **TD**: DIA TD 4
 
 ---
 
-## Qu'est-ce que ce projet ?
+## What is this project ?
 
-Ce projet répond à une problématique concrète : comment rendre les décisions des modèles de deep learning **compréhensibles** pour un utilisateur humain ?
+This project answer to a very concrete and actual problematic : how to make deep learning models' decisions **understandable** to human users ?
 
-Nous avons créé une plateforme qui unifie deux systèmes de détection existants :
-- **Détection de deepfakes audio** : identifier si un enregistrement vocal est authentique ou généré artificiellement
-- **Détection de cancer pulmonaire** : analyser des radiographies thoraciques pour repérer des tumeurs malignes
+We created a platform that unifies two pre-existing decision systems :
+- **Detection of deepfakes audio** : identify if a vocal recording is authetic or AI generated
+- **Detection of lung cancer** : identify malignant lung cancer tumors in chest radiographs
 
-L'originalité de notre approche est de permettre à l'utilisateur de **visualiser pourquoi** le modèle prend sa décision, grâce à trois techniques d'explicabilité (XAI) : LIME, Grad-CAM et SHAP.
-
----
-
-## Pourquoi ce projet est-il pertinent ?
-
-### Le problème des "boîtes noires"
-
-Les réseaux de neurones profonds sont extrêmement performants, mais ils fonctionnent comme des boîtes noires : on leur donne une entrée, ils produisent une sortie, sans explication. C'est problématique dans des domaines critiques :
-
-- **En médecine** : un radiologue ne peut pas faire confiance aveuglément à un algorithme qui lui dit "cancer" sans savoir sur quels éléments de l'image il se base
-- **En sécurité** : détecter un deepfake audio nécessite de comprendre quels artefacts sonores ont trahi la synthèse
-
-### Notre réponse
-
-Notre plateforme ne se contente pas de classifier. Elle montre **visuellement** les zones de l'image (ou du spectrogramme) qui ont influencé la décision. Un radiologue peut ainsi vérifier si le modèle regarde au bon endroit, et un expert en audio peut identifier les patterns caractéristiques des deepfakes.
+The originality of our approach is allowing the user to **visualise why** the model is taking a specific decision, with three explainability techniques (XAI) : LIME, Grad-CAM and SHAP.
 
 ---
 
-## Fonctionnalités
+## Why is this project useful ?
 
-| Fonctionnalité | Description |
+### "Black box" issue
+
+Deep neural networks are extremely performant, but they work like black boxes : we give them an input, they produce an output, without further explanation. This is highly problematic in critical domains :
+
+- **Medical field** : a trained radiologist cannot trust blindly an algorithm that detects cancer without any knowledge of what elements of the X-ray were used to make the prediction
+- **Security field** : when detecting deepfake audios in a security or legal context, knowing which sound artefacts betrayed the artifical audio is key
+
+### Our solution
+
+Our platform isn't limited to classification. It **visually** shows the zones in the image (or spectrogram) that influenced the decision. A radiologist can then verify if the model is looking in the right spots, and an audio expert can identify characteristic deepfake patterns.
+
+---
+
+## Functionality
+
+| Functionality | Description |
 |----------------|-------------|
-| **Upload multi-modal** | Glisser-déposer un fichier audio (.wav) ou une image (.jpg, .png) |
-| **Classification automatique** | Le système détecte le type de fichier et applique le modèle approprié |
-| **Trois méthodes XAI** | LIME, Grad-CAM et SHAP disponibles pour chaque type d'entrée |
-| **Comparaison côte-à-côte** | Visualiser plusieurs méthodes XAI simultanément pour comparer leurs explications |
-| **Métriques de temps** | Affichage du temps de calcul de chaque méthode |
+| **Multi-modal upload** | Drag and drop an audio file (.wav) or image (.jpg, .png) |
+| **Automated classification** | The system automatically detects the uploaded file type and apply corresponding models |
+| **Three XAI methods** | LIME, Grad-CAM and SHAP are available for any entry type |
+| **Side-by-side comparison & evaluation** | Visualize different XAI methods simultaneously to compare their explainations |
+| **Time metrics** | Shows computation time of each method |
 
 ---
 
 ## Installation
 
-### Prérequis
+### Prerequisites
 
-- Python 3.11 ou supérieur
-- pip (gestionnaire de packages Python)
-- Environ 2 Go d'espace disque (pour les dépendances TensorFlow)
+- Python 3.11 or higher
+- pip (gestion of Python packages)
+- Around 2 Go of free disk space (for TensorFlow dependencies)
 
-### Étapes d'installation
+### Installation steps
 
 ```bash
-# 1. Cloner ou télécharger le projet
+# 1. Clone or download the project
 cd unified-xai-platform
 
-# 2. Créer un environnement virtuel (recommandé)
+# 2. Create a virtual environment (recommended)
 python -m venv python_env
 
-# 3. Activer l'environnement
-# Sur Windows :
+# 3. Activate environnement
+# On Windows :
 python_env\Scripts\activate
-# Sur macOS/Linux :
+# On macOS/Linux :
 source python_env/bin/activate
 
-# 4. Installer les dépendances
+# 4. Install dependencies
 pip install -r requirements.txt
 ```
 
-**Note** : La première exécution téléchargera automatiquement les poids ImageNet pour DenseNet121 (~30 Mo).
+**Note** : The first execution will automatically download ImageNet weights for DenseNet121 (~30 Mo).
 
 ---
 
-## Utilisation
+## Utilization
 
-### Lancer l'application
+### Launch the app
 
 ```bash
 streamlit run app.py
 ```
 
-L'application s'ouvre dans votre navigateur à l'adresse `http://localhost:8501`.
+The app opens in your web browser at the following address `http://localhost:8501`.
 
-### Scénario d'utilisation typique
+### Typical use case
 
-**1. Page d'accueil (Home)**
+**1. Home page (Home)**
 
-- Uploadez un fichier audio (.wav) pour la détection de deepfake, ou une image de radiographie (.jpg/.png) pour la détection de cancer
-- Le système détecte automatiquement le type et affiche les options correspondantes
-- Sélectionnez une ou plusieurs méthodes XAI (LIME, Grad-CAM, SHAP)
-- Cliquez sur "Run Analysis"
+- Upload any audio file (.wav) for deepfake detection, or an X-ray image (.jpg/.png) for cancer detection
+- The system automatically detects file type and only display compatible options
+- Select one or more XAI methods (LIME, Grad-CAM, SHAP)
+- Click on "Run Analysis"
 
-**2. Résultats**
+**2. Results**
 
-Pour un fichier audio :
-- Affichage du spectrogramme mel généré
-- Classification : "REAL" ou "FAKE" avec le pourcentage de confiance
-- Visualisations XAI montrant les zones du spectrogramme qui ont influencé la décision
+For an audio file :
+- Shows generated Mel spectrogram
+- Classification : "REAL" or "FAKE" with confidence %
+- XAI visualization showing spectrogram areas that influenced the decision
 
-Pour une image médicale :
-- Affichage de l'image redimensionnée (224x224)
-- Classification : "BENIGN" ou "MALIGNANT" avec le pourcentage de confiance
-- Visualisations XAI mettant en évidence les régions suspectes
+For X-ray image :
+- Shows reshaped image (224x224)
+- Classification : "BENIGN" or "MALIGNANT" with confidence %
+- XAI visualization highlighting suspicious areas
 
-**3. Page de comparaison (Comparison)**
+**3. Comparison page (Comparison)**
 
-- Sélectionnez 2 ou 3 méthodes XAI
-- Cliquez sur "Run Comparison"
-- Visualisez les explications côte-à-côte
-- Comparez les temps de calcul et les caractéristiques de chaque méthode
+- Select two or three XAI methods
+- Click on "Run Comparison"
+- Visualize explanations side-by-side
+- Compare computation time and specificities of each method
 
 ---
 
-## Structure du projet
+## Project structure
 
 ```
 unified-xai-platform/
-├── app.py                      # Point d'entrée Streamlit
-├── requirements.txt            # Dépendances Python
-├── README.md                   # Ce fichier
-├── TECHNICAL_REPORT.md         # Rapport technique détaillé
+├── app.py                      # Streamlit entry point
+├── requirements.txt            # Python dependencies
+├── README.md                   # This file
+├── TECHNICAL_REPORT.md         # Detailled technical report
 │
 ├── models/
 │   ├── audio/
-│   │   └── audio_classifier.py # Classificateur MobileNet pour audio
+│   │   └── audio_classifier.py # MobileNet classifier for audio
 │   └── image/
-│       └── image_classifier.py # Classificateur DenseNet121 pour images
+│       └── image_classifier.py # DenseNet121 classifier for images
 │
 ├── utils/
-│   ├── audio_processing.py     # Conversion audio → spectrogramme
-│   └── image_processing.py     # Prétraitement des images
+│   ├── audio_processing.py     # Audio → spectrogram conversion
+│   └── image_processing.py     # Images preprocessing
 │
 ├── pages/
-│   ├── home.py                 # Interface principale + XAI
-│   └── comparison.py           # Comparaison des méthodes XAI
+│   ├── home.py                 # Principal interface + XAI
+│   └── comparison.py           # XAI methods comparison
 │
 ├── assets/
-│   ├── saved_models/           # Modèles pré-entraînés
-│   │   └── audio/mobilenet/    # Modèle MobileNet pour deepfakes
-│   └── temp/                   # Fichiers temporaires (spectrogrammes, etc.)
+│   ├── saved_models/           # Pre-trained models
+│   │   └── audio/mobilenet/    # MobileNet model for deepfakes
+│   └── temp/                   # Temporary files (spectrograms, etc.)
 │
-└── instructions/               # Consignes du projet (référence)
+└── instructions/               # Instructions for the project (reference)
 ```
 
 ---
 
-## Les modèles utilisés
+## Used models
 
-### Détection de deepfakes audio : MobileNet
+### Detection of deepfakes audio : MobileNet
 
-**Source** : Modèle pré-entraîné du repository [Deepfake-Audio-Detection-with-XAI](https://github.com/Guri10/Deepfake-Audio-Detection-with-XAI)
+**Source** : Pre-trained model from following repository [Deepfake-Audio-Detection-with-XAI](https://github.com/Guri10/Deepfake-Audio-Detection-with-XAI)
 
-**Fonctionnement** :
-1. L'audio est converti en spectrogramme mel (représentation visuelle des fréquences dans le temps)
-2. Le spectrogramme est redimensionné en 224x224 pixels
-3. MobileNet, initialement conçu pour la classification d'images, analyse ce spectrogramme
-4. Sortie : probabilité "real" vs "fake"
+**Working principle** :
+1. The audio is converted to Mel spectrogram (visual representation of frequencies in time)
+2. The spectrogram is reshaped in a 224x224 pixels image
+3. MobileNet, initially created for image classification, analyse this spectrogram
+4. Output : "real" vs "fake" probability
 
-**Pourquoi ça marche** : Les deepfakes audio laissent des traces caractéristiques dans le domaine fréquentiel. Le spectrogramme capture ces artefacts sous forme de patterns visuels que le réseau peut apprendre à reconnaître.
+**Why it works** : Audio deepfakes audio leave a characteristic trace in the frequency domain. The spectrogram captures these artefacts as visual patterns that the neural network can learn to spot.
 
-### Détection de cancer pulmonaire : DenseNet121
+### Detection of lung cancer : DenseNet121
 
-**Source** : Nous avons implémenté DenseNet121 avec les poids pré-entraînés sur ImageNet, en suivant l'approche décrite dans le repository [LungCancerDetection](https://github.com/schaudhuri16/LungCancerDetection).
+**Source** : We implemented DenseNet121 with pre-trained weights on ImageNet, following the approach described in the following repository [LungCancerDetection](https://github.com/schaudhuri16/LungCancerDetection).
 
-**Pourquoi DenseNet** : Ce réseau utilise des "dense connections" où chaque couche reçoit les feature maps de toutes les couches précédentes. Cela favorise la réutilisation des features et améliore le flux de gradient, ce qui est particulièrement utile pour les images médicales où les détails subtils comptent.
+**Why DenseNet** : This network uses "dense connections" where each layer receives the feature maps of all previous layers. This favors reausability of features and improve gradiant flow. This is particularly useful for medical images where very subtle details matter.
 
-**Limitation importante** : Notre modèle utilise des poids ImageNet (images naturelles) et n'a pas été fine-tuné sur des données médicales réelles. Il s'agit d'une démonstration des techniques XAI, pas d'un outil de diagnostic médical.
+**Important limitations** : Our model uses ImageNet weights (natural images) and is not fine-tuned on real medical data. This project is to showcase XAI methods, not a medical diagnosis tool.
 
 ---
 
