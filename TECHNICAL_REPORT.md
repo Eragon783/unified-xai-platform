@@ -1,146 +1,149 @@
-# Rapport Technique - Unified Explainable AI Platform
+# Technical Report - Unified Explainable AI Platform
 
-**Projet de 5ème année - ESILV - Explainability AI**
+**5th Year Project - ESILV - Explainability AI**
 
-**Auteurs** : Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN
-**TD** : DIA TD 4
-
----
-
-## Table des matières
-
-1. [Introduction et contexte](#1-introduction-et-contexte)
-2. [Analyse des repositories sources](#2-analyse-des-repositories-sources)
-3. [Choix d'architecture](#3-choix-darchitecture)
-4. [Implémentation des modèles](#4-implémentation-des-modèles)
-5. [Implémentation des méthodes XAI](#5-implémentation-des-méthodes-xai)
-6. [Pipeline de traitement des données](#6-pipeline-de-traitement-des-données)
-7. [Interface utilisateur](#7-interface-utilisateur)
-8. [Difficultés rencontrées et solutions](#8-difficultés-rencontrées-et-solutions)
-9. [Améliorations par rapport aux repositories originaux](#9-améliorations-par-rapport-aux-repositories-originaux)
-10. [Limites et perspectives](#10-limites-et-perspectives)
+**Authors**: Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN
+**Class**: DIA TD 4
 
 ---
 
-## 1. Introduction et contexte
+## Table of Contents
 
-### 1.1 Objectif du projet
-
-L'objectif de ce projet est de fusionner deux systèmes d'intelligence artificielle explicable (XAI) en une seule plateforme unifiée :
-
-1. **Deepfake Audio Detection** : détection d'audio synthétique vs authentique
-2. **Lung Cancer Detection** : détection de tumeurs malignes sur radiographies thoraciques
-
-La valeur ajoutée réside dans la capacité à **expliquer** les décisions des modèles via trois techniques : LIME, Grad-CAM et SHAP.
-
-### 1.2 Pourquoi l'explicabilité est cruciale
-
-Dans les domaines à fort enjeu (médical, sécurité), un modèle performant ne suffit pas. Il faut pouvoir :
-
-- **Vérifier** que le modèle utilise les bonnes features (et non des artefacts du dataset)
-- **Faire confiance** aux prédictions en comprenant leur logique
-- **Débugger** les erreurs en identifiant ce qui a induit le modèle en erreur
-- **Respecter les régulations** (RGPD Article 22 : droit à l'explication des décisions automatisées)
-
-Le repository LungCancerDetection illustre bien ce point : les auteurs montrent des cas où Grad-CAM révèle que le modèle fait une prédiction correcte mais pour de mauvaises raisons (Figure 5 de leur README), soulignant l'importance de ne pas se fier uniquement à l'accuracy.
+1. [Introduction and Context](#1-introduction-and-context)
+2. [Source Repositories Analysis](#2-source-repositories-analysis)
+3. [Architecture Choices](#3-architecture-choices)
+4. [Models Implementation](#4-models-implementation)
+5. [XAI Methods Implementation](#5-xai-methods-implementation)
+6. [Data Processing Pipeline](#6-data-processing-pipeline)
+7. [User Interface](#7-user-interface)
+8. [Challenges Encountered and Solutions](#8-challenges-encountered-and-solutions)
+9. [Improvements Over Original Repositories](#9-improvements-over-original-repositories)
+10. [Limitations and Perspectives](#10-limitations-and-perspectives)
 
 ---
 
-## 2. Analyse des repositories sources
+## 1. Introduction and Context
+
+### 1.1 Project Objective
+
+The objective of this project is to merge several explainable artificial intelligence (XAI) systems into a single unified platform:
+
+1. **Deepfake Audio Detection**: detection of synthetic vs authentic audio
+2. **Lung Cancer Detection**: detection of malignant tumors on chest X-rays
+3. **Fraud Detection**: detection of fraudulent transactions from tabular data (CSV)
+
+The added value lies in the ability to **explain** model decisions through techniques adapted to each data type: LIME, Grad-CAM and SHAP for images/audio, and LIME Tabular, SHAP TreeExplainer and Feature Importance for tabular data.
+
+### 1.2 Why Explainability is Crucial
+
+In high-stakes domains (medical, security, finance), a high-performing model is not enough. We need to be able to:
+
+- **Verify** that the model uses the right features (and not dataset artifacts)
+- **Trust** predictions by understanding their logic
+- **Debug** errors by identifying what misled the model
+- **Comply with regulations** (GDPR Article 22: right to explanation of automated decisions)
+- **Justify decisions** to clients (e.g., why a transaction was blocked)
+
+The LungCancerDetection repository illustrates this well: the authors show cases where Grad-CAM reveals that the model makes a correct prediction but for the wrong reasons (Figure 5 of their README), highlighting the importance of not relying solely on accuracy.
+
+---
+
+## 2. Source Repositories Analysis
 
 ### 2.1 Deepfake-Audio-Detection-with-XAI
 
-**URL** : https://github.com/Guri10/Deepfake-Audio-Detection-with-XAI
+**URL**: https://github.com/Guri10/Deepfake-Audio-Detection-with-XAI
 
-**Contenu disponible** :
-- Modèles pré-entraînés : MobileNet, VGG16, ResNet, Custom CNN
-- Application Streamlit fonctionnelle
-- Notebooks Jupyter avec implémentation LIME, Grad-CAM, SHAP
-- Dataset : Fake-or-Real (York University)
+**Available content**:
+- Pre-trained models: MobileNet, VGG16, ResNet, Custom CNN
+- Functional Streamlit application
+- Jupyter notebooks with LIME, Grad-CAM, SHAP implementation
+- Dataset: Fake-or-Real (York University)
 
-**Approche technique** :
-Les fichiers audio sont convertis en **spectrogrammes mel** avant classification. Cette transformation est astucieuse car elle permet :
-- D'utiliser des architectures CNN classiques (conçues pour les images)
-- D'appliquer des techniques XAI visuelles (LIME, Grad-CAM) sur une représentation 2D
-- De capturer les artefacts fréquentiels caractéristiques des deepfakes
+**Technical approach**:
+Audio files are converted to **mel spectrograms** before classification. This transformation is clever because it allows:
+- Using classic CNN architectures (designed for images)
+- Applying visual XAI techniques (LIME, Grad-CAM) on a 2D representation
+- Capturing frequency artifacts characteristic of deepfakes
 
-**Performance rapportée** : ~91% d'accuracy avec MobileNet sur le dataset Fake-or-Real.
+**Reported performance**: ~91% accuracy with MobileNet on the Fake-or-Real dataset.
 
 ### 2.2 LungCancerDetection
 
-**URL** : https://github.com/schaudhuri16/LungCancerDetection
+**URL**: https://github.com/schaudhuri16/LungCancerDetection
 
-**Contenu disponible** :
-- README détaillé décrivant l'approche
-- Pas de code exécutable ni de modèles pré-entraînés
+**Available content**:
+- Detailed README describing the approach
+- No executable code or pre-trained models
 
-**Approche technique** :
-- Transfer learning avec AlexNet et DenseNet pré-entraînés sur ImageNet
-- Fine-tuning sur le dataset CheXpert (radiographies thoraciques)
-- Augmentation de données via VAE (Variational AutoEncoder)
-- Grad-CAM pour l'explicabilité
+**Technical approach**:
+- Transfer learning with AlexNet and DenseNet pre-trained on ImageNet
+- Fine-tuning on the CheXpert dataset (chest X-rays)
+- Data augmentation via VAE (Variational AutoEncoder)
+- Grad-CAM for explainability
 
-**Performance rapportée** :
-| Modèle | Accuracy | Recall | Precision | F1-Score |
-|--------|----------|--------|-----------|----------|
-| AlexNet (augmenté) | 71.48% | 75.29% | 69.31% | 72.18% |
-| DenseNet (augmenté) | 73.11% | 78.89% | 70.12% | 74.24% |
+**Reported performance**:
+| Model | Accuracy | Recall | Precision | F1-Score |
+|-------|----------|--------|-----------|----------|
+| AlexNet (augmented) | 71.48% | 75.29% | 69.31% | 72.18% |
+| DenseNet (augmented) | 73.11% | 78.89% | 70.12% | 74.24% |
 
-### 2.3 Synthèse comparative
+### 2.3 Comparative Summary
 
 | Aspect | Audio Repo | Image Repo |
 |--------|------------|------------|
-| Code disponible | Oui (complet) | Non (README only) |
-| Modèles pré-entraînés | Oui | Non |
-| Interface | Streamlit | Aucune |
-| Méthodes XAI | LIME, Grad-CAM, SHAP | Grad-CAM uniquement |
-| État d'exécution | Fonctionnel | À implémenter |
+| Code available | Yes (complete) | No (README only) |
+| Pre-trained models | Yes | No |
+| Interface | Streamlit | None |
+| XAI methods | LIME, Grad-CAM, SHAP | Grad-CAM only |
+| Execution state | Functional | To implement |
 
 ---
 
-## 3. Choix d'architecture
+## 3. Architecture Choices
 
-### 3.1 Framework GUI : Streamlit
+### 3.1 GUI Framework: Streamlit
 
-Nous avons choisi **Streamlit** pour plusieurs raisons :
+We chose **Streamlit** for several reasons:
 
-1. **Cohérence** : Le repository audio l'utilise déjà, facilitant l'intégration
-2. **Rapidité de développement** : Création d'interfaces web sans connaissance frontend
-3. **Widgets natifs** : Upload de fichiers, sliders, boutons, graphiques matplotlib
-4. **Session state** : Persistance des données entre les pages (crucial pour la page de comparaison)
+1. **Consistency**: The audio repository already uses it, facilitating integration
+2. **Development speed**: Creating web interfaces without frontend knowledge
+3. **Native widgets**: File upload, sliders, buttons, matplotlib charts
+4. **Session state**: Data persistence between pages (crucial for the comparison page)
 
-**Alternatives considérées** :
-- **Gradio** : Plus simple mais moins flexible pour des layouts complexes
-- **Flask + React** : Plus puissant mais temps de développement trop important
-- **Jupyter Widgets** : Moins adapté pour une application "production-ready"
+**Alternatives considered**:
+- **Gradio**: Simpler but less flexible for complex layouts
+- **Flask + React**: More powerful but development time too long
+- **Jupyter Widgets**: Less suitable for a "production-ready" application
 
-### 3.2 Architecture modulaire
+### 3.2 Modular Architecture
 
-Nous avons structuré le projet en modules distincts :
+We structured the project into distinct modules:
 
 ```
 unified-xai-platform/
-├── app.py                 # Point d'entrée, navigation
-├── models/                # Classificateurs (séparation audio/image)
-├── utils/                 # Preprocessing (séparation audio/image)
-├── pages/                 # Interface utilisateur (home, comparison)
-└── assets/                # Ressources (modèles sauvegardés, temp)
+├── app.py                 # Entry point, navigation
+├── models/                # Classifiers (audio/image/tabular)
+├── utils/                 # Preprocessing (audio/image/tabular)
+├── views/                 # User interface (home, comparison)
+├── assets/                # Resources (saved models, temp)
+└── file_test/             # Test files (CSV fraud)
 ```
 
-**Justification** :
+**Justification**:
 
-| Module | Responsabilité | Avantage |
-|--------|----------------|----------|
-| `models/` | Chargement et inférence des modèles | Facilite l'ajout de nouveaux modèles |
-| `utils/` | Prétraitement des données | Réutilisable, testable isolément |
-| `pages/` | Interface et logique XAI | Séparation UI/logique métier |
+| Module | Responsibility | Advantage |
+|--------|----------------|-----------|
+| `models/` | Model loading and inference | Facilitates adding new models |
+| `utils/` | Data preprocessing | Reusable, testable in isolation |
+| `views/` | Interface and XAI logic | UI/business logic separation |
 
-### 3.3 Gestion de l'état avec session_state
+### 3.3 State Management with session_state
 
-Streamlit recharge le script à chaque interaction utilisateur. Pour conserver les résultats d'analyse entre les pages, nous utilisons `st.session_state` :
+Streamlit reloads the script on each user interaction. To keep analysis results between pages, we use `st.session_state`:
 
 ```python
-# Sauvegarde après analyse (home.py)
+# Save after analysis (home.py)
 st.session_state['analysis_results'] = {
     'input_type': 'audio',
     'model': 'mobilenet',
@@ -150,62 +153,62 @@ st.session_state['analysis_results'] = {
     'xai_methods': ['lime', 'gradcam']
 }
 
-# Récupération (comparison.py)
+# Retrieval (comparison.py)
 results = st.session_state['analysis_results']
 ```
 
-Ce mécanisme permet à l'utilisateur de naviguer vers la page de comparaison après une analyse, sans perdre les données.
+This mechanism allows the user to navigate to the comparison page after an analysis without losing data.
 
 ---
 
-## 4. Implémentation des modèles
+## 4. Models Implementation
 
-### 4.1 AudioClassifier : MobileNet pour deepfakes
+### 4.1 AudioClassifier: MobileNet for deepfakes
 
-**Fichier** : `models/audio/audio_classifier.py`
+**File**: `models/audio/audio_classifier.py`
 
-**Source du modèle** : Nous avons réutilisé le modèle MobileNet pré-entraîné du repository Deepfake-Audio-Detection-with-XAI, stocké dans `assets/saved_models/audio/mobilenet/`.
+**Model source**: We reused the pre-trained MobileNet model from the Deepfake-Audio-Detection-with-XAI repository, stored in `assets/saved_models/audio/mobilenet/`.
 
-**Architecture** :
+**Architecture**:
 ```
 Input (224, 224, 3) → MobileNet base → Dense layers → Softmax (2 classes)
 ```
 
-**Méthodes clés** :
+**Key methods**:
 
 ```python
 class AudioClassifier:
     def predict(self, image_array):
-        """Retourne (class_label, probabilities)"""
+        """Returns (class_label, probabilities)"""
 
     def predict_proba(self, image_array):
-        """Retourne uniquement les probabilités (pour LIME/SHAP)"""
+        """Returns only probabilities (for LIME/SHAP)"""
 
     def get_model(self):
-        """Retourne le modèle Keras (pour Grad-CAM)"""
+        """Returns the Keras model (for Grad-CAM)"""
 ```
 
-**Normalisation** : Les images sont normalisées à [0, 1] avant inférence. Le modèle a été entraîné avec cette normalisation.
+**Normalization**: Images are normalized to [0, 1] before inference. The model was trained with this normalization.
 
-### 4.2 ImageClassifier : DenseNet121 pour radiographies
+### 4.2 ImageClassifier: DenseNet121 for X-rays
 
-**Fichier** : `models/image/image_classifier.py`
+**File**: `models/image/image_classifier.py`
 
-**Problème** : Le repository LungCancerDetection ne fournit pas de modèle pré-entraîné.
+**Problem**: The LungCancerDetection repository does not provide a pre-trained model.
 
-**Solution adoptée** : Nous avons implémenté DenseNet121 avec les poids ImageNet et une tête de classification personnalisée :
+**Adopted solution**: We implemented DenseNet121 with ImageNet weights and a custom classification head:
 
 ```python
 def _create_densenet_model(self):
-    # Base DenseNet121 sans les couches de classification
+    # Base DenseNet121 without classification layers
     base_model = DenseNet121(
         weights='imagenet',
         include_top=False,
         input_shape=(224, 224, 3)
     )
-    base_model.trainable = False  # Gel des poids
+    base_model.trainable = False  # Freeze weights
 
-    # Nouvelle tête de classification
+    # New classification head
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     x = Dropout(0.5)(x)
@@ -216,146 +219,180 @@ def _create_densenet_model(self):
     return Model(inputs=base_model.input, outputs=outputs)
 ```
 
-**Choix de DenseNet121** :
-- Recommandé dans le repository original
-- Dense connections : chaque couche reçoit les feature maps de toutes les couches précédentes
-- Avantages : meilleur flux de gradient, réutilisation des features, moins de paramètres que VGG/ResNet
+**DenseNet121 choice**:
+- Recommended in the original repository
+- Dense connections: each layer receives feature maps from all previous layers
+- Advantages: better gradient flow, feature reuse, fewer parameters than VGG/ResNet
 
-**Limitation** : Le modèle n'est pas fine-tuné sur des données médicales. Les poids ImageNet permettent d'extraire des features génériques (bords, textures) mais pas des features spécifiques aux radiographies. C'est une démonstration de l'architecture XAI, pas un outil clinique.
+**Limitation**: The model is not fine-tuned on medical data. ImageNet weights allow extracting generic features (edges, textures) but not X-ray-specific features. This is a demonstration of XAI architecture, not a clinical tool.
 
-**Prétraitement** : Nous appliquons la normalisation DenseNet standard :
+**Preprocessing**: We apply standard DenseNet normalization:
 ```python
 x_processed = tf.keras.applications.densenet.preprocess_input(x * 255.0)
 ```
 
-### 4.3 Récapitulatif des modèles
+### 4.3 FraudClassifier: RandomForest for tabular data
 
-| Aspect | AudioClassifier | ImageClassifier |
-|--------|-----------------|-----------------|
-| Architecture | MobileNet | DenseNet121 |
-| Poids | Entraînés sur Fake-or-Real | ImageNet (non fine-tuné) |
-| Entrée | Spectrogramme 224×224×3 | Image 224×224×3 |
-| Sortie | [P(real), P(fake)] | [P(benign), P(malignant)] |
-| Stockage | Fichier local | Créé à la volée |
+**File**: `models/tabular/fraud_classifier.py`
+
+**Model source**: RandomForest model trained on a format similar to the Kaggle Credit Card Fraud Detection dataset.
+
+**Architecture**:
+```
+Input (29 features: V1-V28 + Amount) → RandomForest (100 trees) → Softmax (2 classes)
+```
+
+**Key methods**:
+
+```python
+class FraudClassifier:
+    def predict(self, features_array):
+        """Returns (class_label, probabilities)"""
+
+    def predict_proba(self, features_array):
+        """Returns only probabilities (for LIME/SHAP)"""
+
+    def get_model(self):
+        """Returns the sklearn model (for SHAP TreeExplainer)"""
+
+    def get_feature_importance(self):
+        """Returns RandomForest feature importance"""
+```
+
+**CSV input format**:
+The CSV file must contain the columns:
+- `V1` to `V28`: Features from PCA (anonymized)
+- `Amount`: Transaction amount
+- `Class` (optional): Real label (0=legitimate, 1=fraud)
+
+### 4.4 Models Summary
+
+| Aspect | AudioClassifier | ImageClassifier | FraudClassifier |
+|--------|-----------------|-----------------|-----------------|
+| Architecture | MobileNet | DenseNet121 | RandomForest |
+| Weights | Trained on Fake-or-Real | ImageNet (not fine-tuned) | Synthetic data |
+| Input | Spectrogram 224x224x3 | Image 224x224x3 | 29 features vector |
+| Output | [P(real), P(fake)] | [P(benign), P(malignant)] | [P(legitimate), P(fraud)] |
+| Storage | Local file | Created on-the-fly | Created on-the-fly |
 
 ---
 
-## 5. Implémentation des méthodes XAI
+## 5. XAI Methods Implementation
 
-Les trois méthodes XAI sont implémentées directement dans `pages/home.py` et `pages/comparison.py` pour éviter les indirections inutiles.
+XAI methods are implemented directly in `views/home.py` and `views/comparison.py` to avoid unnecessary indirections.
 
 ### 5.1 LIME (Local Interpretable Model-agnostic Explanations)
 
-**Principe** : Approximer localement le comportement d'un modèle complexe par un modèle linéaire interprétable.
+**Principle**: Locally approximate the behavior of a complex model with an interpretable linear model.
 
-**Implémentation** :
+**Implementation**:
 
 ```python
 from lime import lime_image
 from skimage.segmentation import mark_boundaries
 
 def run_lime_audio(image_data, model, class_names):
-    # 1. Créer l'explainer
+    # 1. Create the explainer
     explainer = lime_image.LimeImageExplainer()
 
-    # 2. Générer l'explication (1000 perturbations)
+    # 2. Generate explanation (1000 perturbations)
     explanation = explainer.explain_instance(
         img_array.astype('float64'),
         model.predict,
-        hide_color=0,           # Couleur de masquage
-        num_samples=1000        # Nombre de perturbations
+        hide_color=0,           # Masking color
+        num_samples=1000        # Number of perturbations
     )
 
-    # 3. Extraire le masque des features importantes
+    # 3. Extract important features mask
     temp, mask = explanation.get_image_and_mask(
         np.argmax(prediction[0]),
-        positive_only=False,    # Afficher aussi les contributions négatives
+        positive_only=False,    # Also show negative contributions
         num_features=8,         # Top 8 features
         hide_rest=True
     )
 
-    # 4. Visualiser avec les contours
+    # 4. Visualize with boundaries
     plt.imshow(mark_boundaries(temp, mask))
 ```
 
-**Fonctionnement détaillé** :
-1. L'image est segmentée en superpixels (régions de pixels similaires)
-2. Pour chaque perturbation : on masque aléatoirement certains superpixels
-3. On passe l'image perturbée au modèle et on récupère la prédiction
-4. Un modèle linéaire (Ridge regression) est entraîné : `prédiction = Σ (wi × présence_superpixeli)`
-5. Les poids `wi` indiquent l'importance de chaque superpixel
+**Detailed operation**:
+1. The image is segmented into superpixels (regions of similar pixels)
+2. For each perturbation: some superpixels are randomly masked
+3. The perturbed image is passed to the model and the prediction is retrieved
+4. A linear model (Ridge regression) is trained: `prediction = Sum(wi x presence_superpixeli)`
+5. The weights `wi` indicate the importance of each superpixel
 
-**Paramètres choisis** :
-- `num_samples=1000` : Compromis entre précision et temps de calcul (~10s par explication)
-- `num_features=8` : Affiche les 8 régions les plus influentes
-- `hide_color=0` : Les superpixels masqués sont remplacés par du noir
+**Chosen parameters**:
+- `num_samples=1000`: Compromise between precision and computation time (~10s per explanation)
+- `num_features=8`: Displays the 8 most influential regions
+- `hide_color=0`: Masked superpixels are replaced with black
 
 ### 5.2 Grad-CAM (Gradient-weighted Class Activation Mapping)
 
-**Principe** : Utiliser les gradients de la classe prédite par rapport aux feature maps de la dernière couche convolutive pour identifier les régions importantes.
+**Principle**: Use the gradients of the predicted class with respect to the feature maps of the last convolutional layer to identify important regions.
 
-**Implémentation pour les images (DenseNet121)** :
+**Implementation for images (DenseNet121)**:
 
 ```python
 def run_gradcam_image(image_data, classifier, class_idx, class_names):
     model = classifier.get_model()
     last_conv_layer_name = classifier.get_last_conv_layer_name()  # 'conv5_block16_concat'
 
-    # 1. Créer un modèle qui expose la sortie de la dernière couche conv
+    # 1. Create a model that exposes the output of the last conv layer
     grad_model = tf.keras.models.Model(
         inputs=model.input,
         outputs=[model.get_layer(last_conv_layer_name).output, model.output]
     )
 
-    # 2. Forward pass avec enregistrement des gradients
+    # 2. Forward pass with gradient recording
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(x_processed)
         class_output = predictions[:, class_idx]
 
-    # 3. Calculer les gradients ∂class_output/∂conv_outputs
+    # 3. Calculate gradients dclass_output/dconv_outputs
     grads = tape.gradient(class_output, conv_outputs)
 
-    # 4. Global Average Pooling des gradients → poids par canal
+    # 4. Global Average Pooling of gradients -> weight per channel
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
-    # 5. Combiner feature maps pondérées
+    # 5. Combine weighted feature maps
     heatmap = conv_outputs[0] @ pooled_grads[..., tf.newaxis]
     heatmap = tf.squeeze(heatmap)
 
-    # 6. ReLU + normalisation
+    # 6. ReLU + normalization
     heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
 
-    # 7. Redimensionner et appliquer colormap
+    # 7. Resize and apply colormap
     heatmap_resized = cv2.resize(heatmap.numpy(), (224, 224))
     heatmap_colored = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
 
-    # 8. Superposer sur l'image originale
+    # 8. Superimpose on original image
     superimposed = cv2.addWeighted(original_img, 0.6, heatmap_colored, 0.4, 0)
 ```
 
-**Implémentation pour l'audio** :
-Pour les spectrogrammes audio, nous utilisons VGG16 au lieu de MobileNet pour Grad-CAM. Ce choix vient du repository original qui utilise cette approche. VGG16 possède des couches convolutives plus facilement exploitables pour Grad-CAM.
+**Implementation for audio**:
+For audio spectrograms, we use VGG16 instead of MobileNet for Grad-CAM. This choice comes from the original repository which uses this approach. VGG16 has convolutional layers more easily exploitable for Grad-CAM.
 
-**Couches utilisées** :
-- Audio (VGG16) : `block5_conv3`
-- Image (DenseNet121) : `conv5_block16_concat`
+**Layers used**:
+- Audio (VGG16): `block5_conv3`
+- Image (DenseNet121): `conv5_block16_concat`
 
 ### 5.3 SHAP (SHapley Additive exPlanations)
 
-**Principe** : Attribuer à chaque feature une valeur de Shapley, issue de la théorie des jeux coopératifs, représentant sa contribution marginale moyenne à la prédiction.
+**Principle**: Assign to each feature a Shapley value, from cooperative game theory, representing its average marginal contribution to the prediction.
 
-**Implémentation** :
+**Implementation**:
 
 ```python
 import shap
 from skimage.segmentation import slic
 
 def run_shap_audio(image_data, model, class_names):
-    # 1. Segmenter l'image en superpixels
+    # 1. Segment image into superpixels
     img_uint8 = (img_array * 255).astype(np.uint8)
     segments = slic(img_uint8, n_segments=50, compactness=10, sigma=1)
 
-    # 2. Définir la fonction de masquage
+    # 2. Define masking function
     def mask_image(mask, img, segs, background=0.0):
         masked = img.copy()
         for i, keep in enumerate(mask):
@@ -363,7 +400,7 @@ def run_shap_audio(image_data, model, class_names):
                 masked[segs == i] = background
         return masked
 
-    # 3. Définir la fonction de prédiction sur les masques
+    # 3. Define prediction function on masks
     def predict_fn(masks):
         preds = []
         for mask in masks:
@@ -372,106 +409,193 @@ def run_shap_audio(image_data, model, class_names):
             preds.append(pred[0])
         return np.array(preds)
 
-    # 4. Créer l'explainer SHAP (KernelExplainer pour model-agnostic)
+    # 4. Create SHAP explainer (KernelExplainer for model-agnostic)
     n_segments = len(np.unique(segments))
-    background = np.ones((1, n_segments))  # Tous segments visibles
+    background = np.ones((1, n_segments))  # All segments visible
     explainer = shap.KernelExplainer(predict_fn, background)
 
-    # 5. Calculer les valeurs SHAP
+    # 5. Calculate SHAP values
     test_mask = np.ones((1, n_segments))
     shap_values = explainer.shap_values(test_mask, nsamples=100)
 
-    # 6. Créer la heatmap
+    # 6. Create heatmap
     heatmap = np.zeros(segments.shape)
     for i, val in enumerate(values):
         heatmap[segments == i] = val
 ```
 
-**Complexité** :
-Le calcul exact des valeurs de Shapley est en O(2^n) où n est le nombre de features. Avec ~50 superpixels, c'est infaisable. `KernelExplainer` utilise un échantillonnage (`nsamples=100`) pour approximer les valeurs.
+**Complexity**:
+Exact calculation of Shapley values is O(2^n) where n is the number of features. With ~50 superpixels, this is infeasible. `KernelExplainer` uses sampling (`nsamples=100`) to approximate values.
 
-**Paramètres choisis** :
-- `n_segments=50` : Granularité des régions (plus = plus précis mais plus lent)
-- `nsamples=100` : Nombre d'échantillons pour l'approximation (plus = plus précis)
-- Temps de calcul : ~30s par explication
+**Chosen parameters**:
+- `n_segments=50`: Region granularity (more = more precise but slower)
+- `nsamples=100`: Number of samples for approximation (more = more precise)
+- Computation time: ~30s per explanation
 
-### 5.4 Comparaison des méthodes
+### 5.4 XAI Methods for Tabular Data
 
-| Critère | LIME | Grad-CAM | SHAP |
-|---------|------|----------|------|
+For tabular data (fraud detection), we use specific XAI methods:
+
+#### 5.4.1 LIME Tabular
+
+**Implementation**:
+
+```python
+from lime.lime_tabular import LimeTabularExplainer
+
+def run_lime_tabular(data_row, classifier, feature_names):
+    # 1. Generate synthetic training data for LIME
+    training_data = generate_synthetic_data(500)
+
+    # 2. Create explainer
+    explainer = LimeTabularExplainer(
+        training_data,
+        feature_names=feature_names,
+        class_names=['Legitimate', 'Fraud'],
+        mode='classification'
+    )
+
+    # 3. Generate explanation
+    explanation = explainer.explain_instance(
+        data_row,
+        classifier.predict_proba,
+        num_features=10
+    )
+
+    # 4. Visualize as bar chart
+    fig = explanation.as_pyplot_figure()
+```
+
+**Important note**: LIME Tabular requires a reference dataset to perturb values. We generate 500 synthetic samples for this.
+
+#### 5.4.2 SHAP TreeExplainer
+
+**Implementation**:
+
+```python
+import shap
+
+def run_shap_tabular(data_row, classifier, feature_names):
+    model = classifier.get_model()
+
+    # TreeExplainer optimized for RandomForest
+    explainer = shap.TreeExplainer(model)
+
+    # Calculate SHAP values (exact, no approximation)
+    shap_values = explainer.shap_values(data_row.reshape(1, -1))
+
+    # Visualization
+    shap.summary_plot(shap_values, feature_names=feature_names)
+```
+
+**Advantage**: `TreeExplainer` calculates Shapley values exactly for tree-based models, without approximation.
+
+#### 5.4.3 Feature Importance
+
+**Implementation**:
+
+```python
+def run_feature_importance(classifier, feature_names):
+    # Get native RandomForest importance
+    importances = classifier.get_feature_importance()
+
+    # Sort by decreasing importance
+    indices = np.argsort(importances)[::-1][:10]
+
+    # Visualize
+    plt.barh(feature_names[indices], importances[indices])
+```
+
+**Foundation**: Importance is calculated by RandomForest as the average impurity reduction (Gini) provided by each feature across all trees.
+
+### 5.5 Methods Comparison
+
+#### For images/audio:
+
+| Criterion | LIME | Grad-CAM | SHAP |
+|-----------|------|----------|------|
 | **Type** | Model-agnostic | Gradient-based | Model-agnostic |
-| **Accès requis** | Fonction predict() | Architecture interne | Fonction predict() |
-| **Temps (224×224)** | ~10s | ~1s | ~30s |
-| **Granularité** | Superpixels | Continue | Superpixels |
-| **Fondement théorique** | Approximation locale | Gradients CNN | Théorie des jeux |
-| **Fidélité** | Locale | Globale (par classe) | Locale |
+| **Required access** | predict() function | Internal architecture | predict() function |
+| **Time (224x224)** | ~10s | ~1s | ~30s |
+| **Granularity** | Superpixels | Continuous | Superpixels |
+| **Theoretical foundation** | Local approximation | CNN gradients | Game theory |
+
+#### For tabular data:
+
+| Criterion | LIME Tabular | SHAP TreeExplainer | Feature Importance |
+|-----------|--------------|-------------------|-------------------|
+| **Type** | Model-agnostic | Model-specific (trees) | Model-specific |
+| **Required access** | predict() function | sklearn model | sklearn model |
+| **Time** | ~2s | ~0.5s | ~0.01s |
+| **Granularity** | Per feature | Per feature | Per feature (global) |
+| **Foundation** | Local approximation | Exact Shapley values | Gini impurity reduction |
 
 ---
 
-## 6. Pipeline de traitement des données
+## 6. Data Processing Pipeline
 
-### 6.1 Pipeline audio
+### 6.1 Audio Pipeline
 
-**Fichier** : `utils/audio_processing.py`
+**File**: `utils/audio_processing.py`
 
 ```
-Fichier .wav → librosa.load() → Mel-spectrogram → Image PNG → Resize 224×224 → Normalisation [0,1]
+.wav file → librosa.load() → Mel-spectrogram → PNG image → Resize 224x224 → Normalization [0,1]
 ```
 
-**Étapes détaillées** :
+**Detailed steps**:
 
 ```python
 def create_spectrogram_from_upload(uploaded_file, temp_dir):
-    # 1. Sauvegarder le fichier uploadé
+    # 1. Save uploaded file
     audio_path = os.path.join(temp_dir, uploaded_file.name)
     with open(audio_path, 'wb') as f:
         f.write(uploaded_file.getbuffer())
 
-    # 2. Charger l'audio avec librosa
+    # 2. Load audio with librosa
     y, sr = librosa.load(audio_path)
 
-    # 3. Calculer le spectrogramme mel
+    # 3. Compute mel spectrogram
     ms = librosa.feature.melspectrogram(y=y, sr=sr)
 
-    # 4. Convertir en décibels (échelle logarithmique)
+    # 4. Convert to decibels (logarithmic scale)
     log_ms = librosa.power_to_db(ms, ref=np.max)
 
-    # 5. Afficher et sauvegarder
+    # 5. Display and save
     librosa.display.specshow(log_ms, sr=sr)
     plt.savefig(spec_path)
 
-    # 6. Charger et redimensionner pour le modèle
+    # 6. Load and resize for model
     image_data = load_img(spec_path, target_size=(224, 224))
 
     return image_data, spec_path
 ```
 
-**Pourquoi le spectrogramme mel ?**
-- **Représentation perceptuelle** : L'échelle mel est non-linéaire et correspond mieux à la perception humaine des fréquences
-- **Compression** : Réduit la dimensionnalité tout en conservant l'information pertinente
-- **Compatibilité CNN** : Transforme un signal 1D (audio) en image 2D analysable par des réseaux convolutifs
+**Why mel spectrogram?**
+- **Perceptual representation**: The mel scale is non-linear and better corresponds to human perception of frequencies
+- **Compression**: Reduces dimensionality while preserving relevant information
+- **CNN compatibility**: Transforms a 1D signal (audio) into a 2D image analyzable by convolutional networks
 
-### 6.2 Pipeline image
+### 6.2 Image Pipeline
 
-**Fichier** : `utils/image_processing.py`
+**File**: `utils/image_processing.py`
 
 ```
-Fichier .jpg/.png → PIL.Image.open() → Convert RGB → Resize 224×224 → Normalisation [0,1] → DenseNet preprocessing
+.jpg/.png file → PIL.Image.open() → Convert RGB → Resize 224x224 → Normalization [0,1] → DenseNet preprocessing
 ```
 
-**Étapes détaillées** :
+**Detailed steps**:
 
 ```python
 def load_image_from_upload(uploaded_file, temp_dir, target_size=(224, 224)):
-    # 1. Sauvegarder le fichier
+    # 1. Save file
     image_path = os.path.join(temp_dir, uploaded_file.name)
     with open(image_path, 'wb') as f:
         f.write(uploaded_file.getbuffer())
 
-    # 2. Charger et convertir en RGB (gère les images en niveaux de gris)
+    # 2. Load and convert to RGB (handles grayscale images)
     image = Image.open(image_path).convert('RGB')
 
-    # 3. Redimensionner
+    # 3. Resize
     image_resized = image.resize(target_size)
 
     return image_resized, image_path
@@ -483,21 +607,58 @@ def image_to_array(image_data, normalize=True):
     return img_array
 ```
 
-**Prétraitement DenseNet** :
+**DenseNet preprocessing**:
 ```python
-# Appliqué dans ImageClassifier.predict()
+# Applied in ImageClassifier.predict()
 processed = tf.keras.applications.densenet.preprocess_input(image_array * 255.0)
 ```
 
-Ce prétraitement centre les pixels selon les statistiques d'ImageNet (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225] approximativement).
+This preprocessing centers pixels according to ImageNet statistics (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225] approximately).
+
+### 6.3 CSV Pipeline (tabular data)
+
+**File**: `utils/tabular_processing.py`
+
+```
+.csv file → pandas.read_csv() → Column validation → Feature extraction → Numpy array
+```
+
+**Detailed steps**:
+
+```python
+def load_csv_from_upload(uploaded_file):
+    # 1. Load CSV with pandas
+    df = pd.read_csv(uploaded_file)
+    return df
+
+def validate_fraud_csv(df):
+    # 2. Check required columns
+    required_columns = [f'V{i}' for i in range(1, 29)] + ['Amount']
+    missing = set(required_columns) - set(df.columns)
+    if missing:
+        return False, f"Missing columns: {missing}"
+    return True, "OK"
+
+def get_sample_for_analysis(df, row_index=0):
+    # 3. Extract a row for analysis
+    feature_columns = [f'V{i}' for i in range(1, 29)] + ['Amount']
+    features = df[feature_columns].iloc[row_index].values
+    return features
+```
+
+**Expected format**:
+The CSV file must follow the Kaggle Credit Card Fraud dataset format:
+- Columns V1 to V28: Anonymized features (PCA result)
+- Amount column: Transaction amount
+- Class column (optional): Real label for validation
 
 ---
 
-## 7. Interface utilisateur
+## 7. User Interface
 
 ### 7.1 Navigation
 
-**Fichier** : `app.py`
+**File**: `app.py`
 
 ```python
 st.sidebar.title("Navigation")
@@ -509,34 +670,34 @@ elif page == "Comparison":
     render_comparison_page()
 ```
 
-### 7.2 Page Home
+### 7.2 Home Page
 
-**Fichier** : `pages/home.py`
+**File**: `views/home.py`
 
-**Layout** :
+**Layout**:
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Unified XAI Platform                 │
-├────────────────────────┬────────────────────────────────┤
-│     Upload File        │       Configuration            │
-│  [File uploader]       │  Model: [Dropdown]             │
-│  [Preview audio/image] │  XAI: [Multiselect]            │
-├────────────────────────┴────────────────────────────────┤
-│                  [Run Analysis Button]                  │
-├─────────────────────────────────────────────────────────┤
-│  Results:                                               │
-│  - Spectrogram / Image preview                          │
-│  - Classification: REAL/FAKE ou BENIGN/MALIGNANT        │
-│  - Confidence: XX%                                      │
-├─────────────────────────────────────────────────────────┤
-│  XAI Explanations:                                      │
-│  [LIME visualization]                                   │
-│  [Grad-CAM visualization]                               │
-│  [SHAP visualization]                                   │
-└─────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    Unified XAI Platform                      |
++------------------------+------------------------------------+
+|     Upload File        |       Configuration                 |
+|  [File uploader]       |  Model: [Dropdown]                  |
+|  [Preview audio/image] |  XAI: [Multiselect]                 |
++------------------------+------------------------------------+
+|                  [Run Analysis Button]                       |
++-------------------------------------------------------------+
+|  Results:                                                    |
+|  - Spectrogram / Image preview                               |
+|  - Classification: REAL/FAKE or BENIGN/MALIGNANT             |
+|  - Confidence: XX%                                           |
++-------------------------------------------------------------+
+|  XAI Explanations:                                           |
+|  [LIME visualization]                                        |
+|  [Grad-CAM visualization]                                    |
+|  [SHAP visualization]                                        |
++-------------------------------------------------------------+
 ```
 
-**Détection automatique du type** :
+**Automatic type detection**:
 ```python
 def detect_input_type(file):
     file_ext = file.name.lower().split('.')[-1]
@@ -544,66 +705,68 @@ def detect_input_type(file):
         return 'audio'
     elif file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'gif']:
         return 'image'
+    elif file_ext == 'csv':
+        return 'tabular'
     return None
 ```
 
-### 7.3 Page Comparison
+### 7.3 Comparison Page
 
-**Fichier** : `pages/comparison.py`
+**File**: `views/comparison.py`
 
-**Layout** :
+**Layout**:
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    XAI Comparison                       │
-├─────────────────────────────────────────────────────────┤
-│  Current Analysis: Audio | MobileNet | Prediction: REAL │
-├─────────────────────────────────────────────────────────┤
-│  Original Input: [Spectrogram/Image]                    │
-│  Classification: REAL (85.2%)                           │
-├─────────────────────────────────────────────────────────┤
-│  Select XAI Methods: [LIME] [Grad-CAM] [SHAP]           │
-│                  [Run Comparison Button]                │
-├──────────────┬──────────────┬───────────────────────────┤
-│    LIME      │   Grad-CAM   │    SHAP                   │
-│  [Visual]    │   [Visual]   │   [Visual]                │
-│  Time: 10.2s │  Time: 1.1s  │  Time: 32.5s              │
-├──────────────┴──────────────┴───────────────────────────┤
-│  Summary Table:                                         │
-│  | Method | Time | Speed | Type |                       │
-│  | LIME   | 10s  | Medium| Model-agnostic |             │
-│  | Grad-CAM| 1s  | Fast  | Gradient-based |             │
-│  | SHAP   | 32s  | Slow  | Model-agnostic |             │
-└─────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    XAI Comparison                            |
++-------------------------------------------------------------+
+|  Current Analysis: Audio | MobileNet | Prediction: REAL      |
++-------------------------------------------------------------+
+|  Original Input: [Spectrogram/Image]                         |
+|  Classification: REAL (85.2%)                                |
++-------------------------------------------------------------+
+|  Select XAI Methods: [LIME] [Grad-CAM] [SHAP]                |
+|                  [Run Comparison Button]                     |
++--------------+--------------+-------------------------------+
+|    LIME      |   Grad-CAM   |    SHAP                       |
+|  [Visual]    |   [Visual]   |   [Visual]                    |
+|  Time: 10.2s |  Time: 1.1s  |  Time: 32.5s                  |
++--------------+--------------+-------------------------------+
+|  Summary Table:                                              |
+|  | Method | Time | Speed | Type |                           |
+|  | LIME   | 10s  | Medium| Model-agnostic |                 |
+|  | Grad-CAM| 1s  | Fast  | Gradient-based |                 |
+|  | SHAP   | 32s  | Slow  | Model-agnostic |                 |
++-------------------------------------------------------------+
 ```
 
 ---
 
-## 8. Difficultés rencontrées et solutions
+## 8. Challenges Encountered and Solutions
 
-### 8.1 Absence de modèle pré-entraîné pour les images
+### 8.1 Missing Pre-trained Model for Images
 
-**Problème** : Le repository LungCancerDetection ne contient que de la documentation, pas de code ni de modèles.
+**Problem**: The LungCancerDetection repository contains only documentation, no code or models.
 
-**Solution** : Nous avons implémenté DenseNet121 avec les poids ImageNet. C'est une démonstration de l'architecture XAI, pas un outil clinique. Pour un usage réel, il faudrait fine-tuner sur le dataset CheXpert.
+**Solution**: We implemented DenseNet121 with ImageNet weights. This is a demonstration of XAI architecture, not a clinical tool. For real use, fine-tuning on the CheXpert dataset would be necessary.
 
-**Justification** : Le professeur a clarifié que l'objectif est de fusionner les repositories, pas nécessairement d'entraîner des modèles. Réutiliser des modèles pré-entraînés avec citation est acceptable.
+**Justification**: The professor clarified that the objective is to merge repositories, not necessarily to train models. Reusing pre-trained models with citation is acceptable.
 
-### 8.2 Compatibilité Python 3.11
+### 8.2 Python 3.11 Compatibility
 
-**Problème** : TensorFlow 2.6.2 (version du repository original) n'est pas compatible avec Python 3.11.
+**Problem**: TensorFlow 2.6.2 (original repository version) is not compatible with Python 3.11.
 
-**Solution** : Mise à jour vers TensorFlow 2.15.0 et adaptation des autres dépendances :
+**Solution**: Update to TensorFlow 2.15.0 and adapt other dependencies:
 ```
 tensorflow>=2.15.0
 keras>=3.0.0
 streamlit>=1.28.0
 ```
 
-### 8.3 Session state perdue entre les pages
+### 8.3 Session State Lost Between Pages
 
-**Problème** : Les résultats d'analyse n'étaient pas disponibles sur la page de comparaison.
+**Problem**: Analysis results were not available on the comparison page.
 
-**Solution** : Sauvegarde explicite dans `st.session_state` après chaque analyse :
+**Solution**: Explicit save in `st.session_state` after each analysis:
 ```python
 st.session_state['analysis_results'] = {
     'input_type': 'audio',
@@ -615,91 +778,96 @@ st.session_state['analysis_results'] = {
 }
 ```
 
-### 8.4 Grad-CAM pour audio
+### 8.4 Grad-CAM for Audio
 
-**Problème** : MobileNet ne possède pas de couche convolutive facilement exploitable pour Grad-CAM.
+**Problem**: MobileNet does not have a convolutional layer easily exploitable for Grad-CAM.
 
-**Solution** : Suivant l'approche du repository original, nous utilisons VGG16 pour le Grad-CAM audio. Bien que ce ne soit pas le même modèle que pour la classification, cela permet d'avoir une visualisation des zones importantes du spectrogramme.
+**Solution**: Following the original repository approach, we use VGG16 for audio Grad-CAM. Although not the same model as for classification, this allows visualizing important spectrogram regions.
 
-### 8.5 Temps de calcul SHAP
+### 8.5 SHAP Computation Time
 
-**Problème** : SHAP peut prendre plus d'une minute par image.
+**Problem**: SHAP can take more than a minute per image.
 
-**Solution** : Réduction des paramètres pour la page de comparaison :
-- `n_segments=30` au lieu de 50
-- `nsamples=50` au lieu de 100
+**Solution**: Reduced parameters for the comparison page:
+- `n_segments=30` instead of 50
+- `nsamples=50` instead of 100
 
-La page d'accueil utilise les paramètres complets pour plus de précision.
-
----
-
-## 9. Améliorations par rapport aux repositories originaux
-
-### 9.1 Interface unifiée
-
-| Avant | Après |
-|-------|-------|
-| Deux repositories séparés | Une seule application |
-| Audio seulement (Streamlit) | Audio + Image |
-| Pas d'interface pour images | Interface complète |
-
-### 9.2 Couverture XAI étendue
-
-| Méthode | Repo Audio | Repo Image | Notre plateforme |
-|---------|------------|------------|------------------|
-| LIME | Oui | Non | Oui (audio + image) |
-| Grad-CAM | Oui | Oui (doc) | Oui (audio + image) |
-| SHAP | Notebooks | Non | Oui (audio + image) |
-
-### 9.3 Page de comparaison
-
-**Fonctionnalité absente des repos originaux** :
-- Visualisation côte-à-côte de 2-3 méthodes XAI
-- Métriques de temps de calcul
-- Tableau comparatif des caractéristiques
-
-### 9.4 Code modernisé
-
-- Compatible Python 3.11+
-- Dépendances à jour (TensorFlow 2.15, Streamlit 1.28)
-- Architecture modulaire et maintenable
+The home page uses full parameters for more precision.
 
 ---
 
-## 10. Limites et perspectives
+## 9. Improvements Over Original Repositories
 
-### 10.1 Limites actuelles
+### 9.1 Unified Interface
 
-**Modèle image non fine-tuné** :
-Notre ImageClassifier utilise les poids ImageNet. Les prédictions sur des radiographies ne sont pas fiables. C'est une démonstration de l'architecture, pas un outil médical.
+| Before | After |
+|--------|-------|
+| Two separate repositories | One single application |
+| Audio only (Streamlit) | Audio + Image |
+| No interface for images | Complete interface |
 
-**Grad-CAM audio indirect** :
-L'utilisation de VGG16 au lieu de MobileNet pour Grad-CAM audio est un compromis. Les visualisations montrent les zones importantes selon VGG16, pas selon le modèle de classification réel.
+### 9.2 Extended XAI Coverage
 
-**Pas de support CSV** :
-Le support de données tabulaires (CSV) est mentionné comme bonus dans les consignes mais n'a pas été implémenté.
+| Method | Audio Repo | Image Repo | Our Platform |
+|--------|------------|------------|--------------|
+| LIME | Yes | No | Yes (audio + image + tabular) |
+| Grad-CAM | Yes | Yes (doc) | Yes (audio + image) |
+| SHAP | Notebooks | No | Yes (audio + image + tabular) |
+| Feature Importance | No | No | Yes (tabular) |
 
-### 10.2 Améliorations possibles
+### 9.3 Comparison Page
 
-1. **Fine-tuning du modèle image** sur CheXpert pour des prédictions médicales réalistes
-2. **Ajout d'autres modèles audio** (VGG16, ResNet, Custom CNN disponibles dans le repo original)
-3. **Support CSV** avec méthodes XAI tabulaires (SHAP TreeExplainer, feature importance)
-4. **Export PDF** des résultats d'analyse
-5. **Caching** des modèles pour accélérer les analyses répétées
-6. **Tests unitaires** pour les modules de preprocessing et les classificateurs
+**Feature absent from original repos**:
+- Side-by-side visualization of 2-3 XAI methods
+- Computation time metrics
+- Comparative characteristics table
 
-### 10.3 Pistes de recherche
+### 9.4 Tabular Data Support
 
-- **Comparaison quantitative** des méthodes XAI (fidélité, stabilité, sensibilité)
-- **Méthodes XAI supplémentaires** : Integrated Gradients, Layer-wise Relevance Propagation
-- **Analyse multi-modale** : combiner audio et image pour une même prédiction
-- **Déploiement cloud** : AWS/GCP pour démonstration en ligne
+**Bonus feature implemented**:
+- Fraud detection via CSV file
+- 3 dedicated XAI methods: LIME Tabular, SHAP TreeExplainer, Feature Importance
+- Test file provided (`file_test/fraud_test_data.csv`)
+
+### 9.5 Modernized Code
+
+- Python 3.11+ compatible
+- Up-to-date dependencies (TensorFlow 2.15, Streamlit 1.28)
+- Modular and maintainable architecture
 
 ---
 
-## Annexes
+## 10. Limitations and Perspectives
 
-### A. Dépendances principales
+### 10.1 Current Limitations
+
+**Image model not fine-tuned**:
+Our ImageClassifier uses ImageNet weights. Predictions on X-rays are not reliable. This is a demonstration of architecture, not a medical tool.
+
+**Indirect audio Grad-CAM**:
+Using VGG16 instead of MobileNet for audio Grad-CAM is a compromise. Visualizations show important regions according to VGG16, not the actual classification model.
+
+### 10.2 Possible Improvements
+
+1. **Fine-tune image model** on CheXpert for realistic medical predictions
+2. **Add other audio models** (VGG16, ResNet, Custom CNN available in original repo)
+3. **PDF export** of analysis results
+4. **Model caching** to speed up repeated analyses
+5. **Unit tests** for preprocessing modules and classifiers
+6. **Train fraud model** on real Kaggle dataset for better predictions
+
+### 10.3 Research Directions
+
+- **Quantitative comparison** of XAI methods (fidelity, stability, sensitivity)
+- **Additional XAI methods**: Integrated Gradients, Layer-wise Relevance Propagation
+- **Multi-modal analysis**: combine audio and image for the same prediction
+- **Cloud deployment**: AWS/GCP for online demonstration
+
+---
+
+## Appendices
+
+### A. Main Dependencies
 
 ```
 tensorflow>=2.15.0
@@ -714,27 +882,27 @@ numpy>=1.24.0
 Pillow>=10.0.0
 ```
 
-### B. Commandes utiles
+### B. Useful Commands
 
 ```bash
-# Lancer l'application
+# Launch application
 streamlit run app.py
 
-# Lancer avec un port spécifique
+# Launch with specific port
 streamlit run app.py --server.port 8080
 
-# Mode debug
+# Debug mode
 streamlit run app.py --logger.level debug
 ```
 
-### C. Structure des session_state
+### C. session_state Structure
 
 ```python
 st.session_state = {
     'uploaded_file': <UploadedFile>,
-    'input_type': 'audio' | 'image',
-    'selected_model': 'mobilenet' | 'densenet121',
-    'selected_xai': ['lime', 'gradcam', 'shap'],
+    'input_type': 'audio' | 'image' | 'tabular',
+    'selected_model': 'mobilenet' | 'densenet121' | 'randomforest_fraud',
+    'selected_xai': ['lime', 'gradcam', 'shap', 'lime_tabular', 'shap_tabular', 'feature_importance'],
     'analysis_results': {
         'input_type': str,
         'model': str,
