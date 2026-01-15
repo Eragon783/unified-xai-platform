@@ -174,90 +174,89 @@ unified-xai-platform/
 
 ---
 
-## Les méthodes d'explicabilité (XAI)
+## Explanability methods (XAI)
 
 ### LIME (Local Interpretable Model-agnostic Explanations)
 
-**Principe** : LIME traite le modèle comme une boîte noire et l'interroge de manière répétée.
+**Principle** : LIME treats the model like a black box and queries it repeatedly.
 
-**Comment ça fonctionne** :
-1. L'image est segmentée en "superpixels" (régions cohérentes)
-2. On génère des milliers de versions perturbées en masquant certains superpixels
-3. On observe comment la prédiction du modèle change
-4. Un modèle linéaire simple est entraîné pour approximer localement le comportement du réseau
-5. Les superpixels avec les plus forts coefficients sont mis en évidence
+**How it works** :
+1. The image is segmented in "superpixels" (coherent regions)
+2. We generate thousands of pertubated versions while hiding some superpixels
+3. We observe how the model prediction changes
+4. A simple linear model is trained to locally approximate the behavior of the network
+5. Superpixels with strongest coefficients are highlighted
 
-**Avantage** : Fonctionne avec n'importe quel modèle, sans accès à son architecture interne.
+**Avantages** : Works with any model without needing access to its internal architecture.
 
-**Inconvénient** : Relativement lent (1000 prédictions par explication).
+**Disadvantages** : Relatively slow (1000 predictions by explanation).
 
 ### Grad-CAM (Gradient-weighted Class Activation Mapping)
 
-**Principe** : Grad-CAM exploite les gradients du réseau pour identifier les régions importantes.
+**Principle** : Grad-CAM exploits the network's gradiants to identify important regions.
 
-**Comment ça fonctionne** :
-1. On effectue une passe avant (forward pass) jusqu'à la dernière couche convolutive
-2. On calcule le gradient de la classe prédite par rapport aux feature maps
-3. Ces gradients sont moyennés pour obtenir un poids par canal
-4. Les feature maps sont combinées selon ces poids
-5. Une fonction ReLU garde uniquement les contributions positives
+**How it works** :
+1. We do a forward pass up to the last convolutional layer
+2. We compute the gradiant of the predicted class compared to the feature maps
+3. These gradiants are averaged to obtain one weight per canal
+4. Features maps are combined following these weights
+5. A ReLU function keeps only positive contributions
 
-**Avantage** : Très rapide (une seule passe arrière), résolution fidèle aux features apprises.
+**Avantages** : Veru fast (only one forward pass), resolution faithful to learned features.
 
-**Inconvénient** : Nécessite l'accès aux couches internes du réseau (spécifique aux CNN).
+**Disadvantages** : Needs access to internal layer of the network (specific for CNN).
 
 ### SHAP (SHapley Additive exPlanations)
 
-**Principe** : SHAP s'appuie sur la théorie des jeux pour attribuer une "contribution" à chaque feature.
+**Principle** : SHAP uses game theory to give one "contribution" to each feature.
 
-**Comment ça fonctionne** :
-1. L'image est segmentée en superpixels
-2. Pour chaque segment, on calcule sa valeur de Shapley : la contribution marginale moyenne de ce segment à la prédiction, sur toutes les combinaisons possibles de segments
-3. Ces valeurs sont visualisées sous forme de heatmap
+**How it works** :
+1. The image is segmented in "superpixels"
+2. For each segment, we compute its Shapley value : the mean marginal contribution of this segment to the prediction, on every possible segment combinations
+3. Values are shown in a heatmap
 
-**Avantage** : Fondement théorique solide, attributions qui somment exactement à la différence entre la prédiction et la baseline.
+**Avantages** : Solid theorical fundation, attributes that sum up exactly to the difference between the prediction and the baseline.
 
-**Inconvénient** : Très coûteux en calcul (exponentiel en nombre de features, d'où l'approximation par échantillonnage).
-
----
-
-## Fichiers de test
-
-Pour tester l'application, vous pouvez utiliser :
-
-**Audio** : N'importe quel fichier .wav de quelques secondes. Des exemples sont disponibles dans le dataset [Fake-or-Real](https://www.kaggle.com/datasets/mohammedabdeldayem/the-fake-or-real-dataset).
-
-**Images** : Des radiographies thoraciques au format .jpg ou .png. Des exemples sont disponibles dans le dataset [CheXpert](https://www.kaggle.com/datasets/ashery/chexpert).
+**Disadvantages** : High computational cost (exponential in number of features, hence the approximation by sampling).
 
 ---
 
-## Déclaration d'utilisation d'IA générative
+## Test files
 
-Conformément aux exigences du projet, nous déclarons l'utilisation des outils suivants :
+To test the app you can use :
 
-### Outils utilisés
+**Audio** : Any .wav file of a few seconds long. Exemples are available in this dataset [Fake-or-Real](https://www.kaggle.com/datasets/mohammedabdeldayem/the-fake-or-real-dataset).
 
-| Outil | Modèle | Version |
+**Images** : Chest X-rays in .jpg or .png format. Exemples are available in this dataset [CheXpert](https://www.kaggle.com/datasets/ashery/chexpert).
+
+---
+
+## Declaration of GenAI usage
+Like asked by the project's requirements, we declare the usage of the following tools :
+
+### Used tools
+
+| Outil | Model | Version |
 |-------|--------|---------|
 | Claude Code (Anthropic) | Claude | CLI Extension VSCode |
 
-### Utilisation détaillée
+### Detailed usage
 
-**Développement de code** :
-- Structuration de l'architecture du projet (séparation models/, utils/, pages/)
-- Implémentation de l'interface Streamlit
-- Intégration des bibliothèques XAI (LIME, SHAP, tf-keras-vis)
-- Création des pipelines de prétraitement audio et image
-- Débogage des problèmes de compatibilité Python 3.11
+**Code development** :
+- Project architecture structuration (split of models/, utils/, pages/)
+- Streamlit interface implementation
+- Integration of XAI libraries (LIME, SHAP, tf-keras-vis)
+- Audio and image preprocessing pipelines creation
+- Debug of compatibility issues with Python 3.11
 
 **Documentation** :
-- Rédaction du README.md
-- Rédaction du rapport technique (TECHNICAL_REPORT.md)
-- Commentaires dans le code
+- Redaction of README.md (this file)
+- Rdaction of technical report (TECHNICAL_REPORT.md)
+- Code commentaries
 
-### Contributions humaines
+### Human contribution
 
-- Définition des exigences et prise de décisions techniques
-- Tests manuels de l'application
-- Validation des résultats XAI
-- Revue et correction du code et de la documentation
+- Requirements definition and technical decisions making
+- Manual tests of the app
+- Validation of XAI results
+- Review and corrections of the code and documentation
