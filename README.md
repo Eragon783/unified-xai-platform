@@ -14,7 +14,7 @@ This project answer to a very concrete and actual problematic : how to make deep
 We created a platform that unifies three decision systems :
 - **Detection of deepfakes audio** : identify if a vocal recording is authetic or AI generated
 - **Detection of lung cancer** : identify malignant lung cancer tumors in chest radiographs
-- **Fraud detection**: analyze banking transactions (CSV tabular data) to identify frauds
+- **Fraud detection** : analyze banking transactions (CSV tabular data) to identify frauds
 
 The originality of our approach is allowing the user to **visualise why** the model is taking a specific decision, with three explainability techniques (XAI) : LIME, Grad-CAM and SHAP.
 
