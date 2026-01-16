@@ -2,7 +2,7 @@
 
 **5th Year Project - ESILV - Explainability AI**
 
-**Authors**: Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN
+**Authors**: Solal LEDRU, Tara MESTMAN, Tristan MOLIN & Nicolas MERLIN  
 **Class**: DIA TD 4
 
 ---
